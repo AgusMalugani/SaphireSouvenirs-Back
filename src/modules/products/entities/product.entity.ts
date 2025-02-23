@@ -1,1 +1,5 @@
-export class Product {}
+
+export class Product {
+
+
+}

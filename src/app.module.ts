@@ -5,7 +5,16 @@ import { OrderdetailsModule } from './modules/orderdetails/orderdetails.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 
 @Module({
-  imports: [ProductsModule, OrdersModule, OrderdetailsModule, CategoriesModule],
+  imports: [
+    TypeOrmModule.forRoot(typeOrmConfig), 
+    ConfigModule.forRoot({
+      envFilePath: '.env',  
+      isGlobal: true, 
+    }),
+    ProductsModule, 
+    OrdersModule,
+     OrderdetailsModule,
+      CategoriesModule],
   controllers: [],
   providers: [],
 })
