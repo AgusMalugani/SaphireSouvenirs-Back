@@ -1,7 +1,7 @@
 import { CardsEnum } from "src/enums/cards.enum";
 import { Category } from "src/modules/categories/entities/category.entity";
 import { Orderdetail } from "src/modules/orderdetails/entities/orderdetail.entity";
-import { Column, Entity, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinTable, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
 export class Product {
@@ -17,9 +17,8 @@ img_url?:string
 details:string
 @Column()
 stock:number
-@Column({type:"enum",enum:CardsEnum})
-card?: CardsEnum
 @ManyToMany(()=>Category,(category)=>category.products)
+@JoinTable()
 categories:Category[]
 @ManyToMany(()=>Orderdetail,(orderDet)=>orderDet.products)
 orderDetail:Orderdetail[]

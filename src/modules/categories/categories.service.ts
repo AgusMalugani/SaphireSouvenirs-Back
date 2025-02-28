@@ -11,6 +11,7 @@ constructor(@InjectRepository(Category) private readonly categoryRepository : Re
 
   async create(createCategoryDto: CreateCategoryDto) {
     const{category}=createCategoryDto;
+    
     const categoryDb = await this.categoryRepository.findOne({where:{category}})
     if(categoryDb){
       throw new BadRequestException("Ya existe una categoria con ese nombre.")

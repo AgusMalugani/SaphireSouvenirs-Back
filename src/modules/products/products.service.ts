@@ -6,6 +6,7 @@ import { Product } from './entities/product.entity';
 import { Repository } from 'typeorm';
 import { CategoriesService } from './../categories/categories.service';
 import { Category } from '../categories/entities/category.entity';
+import { CardsEnum } from 'src/enums/cards.enum';
 
 @Injectable()
 export class ProductsService {
@@ -14,9 +15,11 @@ private readonly categoriesService:CategoriesService ){}
 
 
   async create(createProductDto: CreateProductDto) :Promise<Product> {
-    const {card,stock,categories,details,name,price} = createProductDto;
-      const categoriesBd : Category[] = await Promise.all(categories.map(async cat=> await this.categoriesService.findOneByCategoryName(cat)) ) //array string
-      const product = this.productRepository.create({name,stock,price,details,categories:categoriesBd,card});    
+    const {stock,categories,details,name,price} = createProductDto;
+    console.log(createProductDto);
+    
+      const categoriesBd : Category[] = await Promise.all(categories.map(async cat=> await this.categoriesService.findOneByCategoryName(cat.toUpperCase())) ) //array string
+      const product = this.productRepository.create({name,stock,price,details,categories:categoriesBd});    
       return this.productRepository.save(product);
     
   }

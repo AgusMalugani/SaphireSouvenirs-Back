@@ -1,4 +1,4 @@
-import { IsString } from "class-validate";
+import { IsString } from "class-validator";
 
 export class CreateCategoryDto {
     @IsString()
