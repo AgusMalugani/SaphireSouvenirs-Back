@@ -1,16 +1,21 @@
 import { StateEnum } from "src/enums/states.enum";
 import { TransactionTypeEnum } from "src/enums/transactionType.enum";
 import { Orderdetail } from "src/modules/orderdetails/entities/orderdetail.entity";
-import { Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
 export class Order {
 @PrimaryGeneratedColumn("uuid")
 id:string
-createAt:Date
-endOrder:Date
+@Column({type:"date", default: () => 'CURRENT_DATE' })
+createAt:string
+@Column({type:"date", default: () => 'CURRENT_DATE' })
+endOrder:string
+@Column()
 transactionType:TransactionTypeEnum
+@Column({default:StateEnum.InProcces})
 state: StateEnum
+@Column()
 totalPrice:number
 @OneToMany(()=>Orderdetail,(orderDet)=>orderDet.order)
 orderDetails:Orderdetail[]

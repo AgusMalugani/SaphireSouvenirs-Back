@@ -1,23 +1,39 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateOrderdetailDto } from './dto/create-orderdetail.dto';
 import { UpdateOrderdetailDto } from './dto/update-orderdetail.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Orderdetail } from './entities/orderdetail.entity';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class OrderdetailsService {
+constructor(@InjectRepository(Orderdetail) private readonly orderDetailRepository : Repository<Orderdetail> ){}
+
   create(createOrderdetailDto: CreateOrderdetailDto) {
     return 'This action adds a new orderdetail';
   }
 
-  findAll() {
-    return `This action returns all orderdetails`;
+  async findAll() {
+    const  orderDetails = await this.orderDetailRepository.find()
+    if(!orderDetails){
+      throw new BadRequestException("No hay detalles de ordenes");
+    }
+    return orderDetails;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} orderdetail`;
+ async findOneById(id: string) {
+  const orderDetail= await this.orderDetailRepository.findOne({where:{id}})
+  if(!orderDetail){
+    throw new BadRequestException("No hay detalles de orden con esa id");
+  }
+  return orderDetail;
   }
 
-  update(id: number, updateOrderdetailDto: UpdateOrderdetailDto) {
-    return `This action updates a #${id} orderdetail`;
+
+  async update(id: string, updateOrderdetailDto: UpdateOrderdetailDto) {
+    const orderDetail = await this.findOneById(id);
+    Object.assign(orderDetail,updateOrderdetailDto);
+    return this.orderDetailRepository.save(orderDetail);
   }
 
   remove(id: number) {
