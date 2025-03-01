@@ -15,11 +15,11 @@ private readonly categoriesService:CategoriesService ){}
 
 
   async create(createProductDto: CreateProductDto) :Promise<Product> {
-    const {stock,categories,details,name,price} = createProductDto;
+    const {categories,details,name,price} = createProductDto;
     console.log(createProductDto);
     
       const categoriesBd : Category[] = await Promise.all(categories.map(async cat=> await this.categoriesService.findOneByCategoryName(cat.toUpperCase())) ) //array string
-      const product = this.productRepository.create({name,stock,price,details,categories:categoriesBd});    
+      const product = this.productRepository.create({name,price,details,categories:categoriesBd});    
       return this.productRepository.save(product);
     
   }

@@ -8,9 +8,7 @@ export class OrderdetailsController {
   constructor(private readonly orderdetailsService: OrderdetailsService) {}
 
   @Post()
-  create(@Body() createOrderdetailDto: CreateOrderdetailDto) {
-    return this.orderdetailsService.create(createOrderdetailDto);
-  }
+
 
   @Get()
   async findAll() {

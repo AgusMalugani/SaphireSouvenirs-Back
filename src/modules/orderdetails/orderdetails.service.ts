@@ -4,14 +4,33 @@ import { UpdateOrderdetailDto } from './dto/update-orderdetail.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Orderdetail } from './entities/orderdetail.entity';
 import { Repository } from 'typeorm';
+import { Order } from '../orders/entities/order.entity';
+import { ProductsService } from '../products/products.service';
 
 @Injectable()
 export class OrderdetailsService {
-constructor(@InjectRepository(Orderdetail) private readonly orderDetailRepository : Repository<Orderdetail> ){}
+constructor(@InjectRepository(Orderdetail) private readonly orderDetailRepository : Repository<Orderdetail>, 
+private readonly productService : ProductsService ){}
 
-  create(createOrderdetailDto: CreateOrderdetailDto) {
-    return 'This action adds a new orderdetail';
-  }
+  async create(createOrderdetailDto: CreateOrderdetailDto,order:Order) {
+    const{productId,quantity}=createOrderdetailDto;
+    const product = await this.productService.findOneById(productId);
+    if(!product){
+      throw new BadRequestException("No existe ese producto");
+    }
+
+      
+      if(product.stock === false){
+        throw new BadRequestException("El producto, no esta en stock"); //esto no deberia pasar.
+      }
+
+      const subTotal= product.price * quantity
+    
+const orderDetail = this.orderDetailRepository.create({product,quantity,subTotal,order});
+return this.orderDetailRepository.save(orderDetail);  
+}
+
+
 
   async findAll() {
     const  orderDetails = await this.orderDetailRepository.find()

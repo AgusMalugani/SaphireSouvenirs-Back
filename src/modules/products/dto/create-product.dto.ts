@@ -1,4 +1,4 @@
-import { IsArray, IsEnum, IsNumber, IsOptional, IsString } from "class-validator"
+import { IsArray, IsBoolean, IsEnum, IsNumber, IsOptional, IsString } from "class-validator"
 import { CardsEnum } from "src/enums/cards.enum"
 
 export class CreateProductDto {
@@ -8,8 +8,6 @@ export class CreateProductDto {
     price:number
     @IsString()
     details:string
-    @IsNumber()
-    stock:number
     @IsArray()
     categories:string[]
 }

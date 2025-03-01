@@ -1,7 +1,7 @@
 import { CardsEnum } from "src/enums/cards.enum";
 import { Category } from "src/modules/categories/entities/category.entity";
 import { Orderdetail } from "src/modules/orderdetails/entities/orderdetail.entity";
-import { Column, Entity, JoinTable, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinTable, ManyToMany, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
 export class Product {
@@ -15,12 +15,12 @@ price:number
 img_url?:string
 @Column()
 details:string
-@Column()
-stock:number
+@Column({default:true})
+stock:boolean
 @ManyToMany(()=>Category,(category)=>category.products)
 @JoinTable()
 categories:Category[]
-@ManyToMany(()=>Orderdetail,(orderDet)=>orderDet.products)
-orderDetail:Orderdetail[]
+@OneToMany(()=>Orderdetail,(orderDet)=>orderDet.product)
+orderDetails:Orderdetail[]
 
 }

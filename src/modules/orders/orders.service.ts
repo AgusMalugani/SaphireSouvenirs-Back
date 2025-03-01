@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
 import { Repository } from 'typeorm';
 import { OrderdetailsService } from './../orderdetails/orderdetails.service';
+import * as dayjs from "dayjs";
 
 @Injectable()
 export class OrdersService {
@@ -12,8 +13,38 @@ constructor(@InjectRepository(Order)private readonly orderRepository : Repositor
 private readonly orderDetailsService:OrderdetailsService
 ){}
 
-  create(createOrderDto: CreateOrderDto) {
-    return 'This action adds a new order';
+  async create(createOrderDto: CreateOrderDto) {
+    const {endOrder,nameClient,nameForCard,
+      num2Cel,numCel,theme,transactionType,products} = createOrderDto;
+      console.log(endOrder);
+      
+      const createAt = dayjs().format("YYYY-MM-DD") //fecha del pedido
+      if(!dayjs(endOrder,"YYYY-MM-DD",true).isValid()){ //fecha de la fiesta
+        throw new BadRequestException("El formato de la fecha esta mal, debe ser YYYY-MM-DD");
+      }
+      //State esta por def inprocess
+      const orderSchema = this.orderRepository.create({
+        createAt,
+        endOrder,
+        transactionType,
+        nameClient,
+        nameForCard,
+        theme,
+        num2Cel,
+        numCel,
+        totalPrice:0,
+      });
+
+      const order = await this.orderRepository.save(orderSchema) //hago esto, para poder obtener la id
+
+      const orderDetails = await Promise.all(products.map(async prod=> await this.orderDetailsService.create(prod,order))) ;
+      let total= 0;
+      orderDetails.map(orderDet => total = total + orderDet.subTotal);
+      order.orderDetails = orderDetails;      
+       order.totalPrice = total;
+       
+       return this.orderRepository.save(order);
+
   }
 
   async findAll() : Promise<Order[]> {

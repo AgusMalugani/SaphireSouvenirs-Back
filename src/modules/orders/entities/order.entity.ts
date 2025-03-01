@@ -17,6 +17,17 @@ transactionType:TransactionTypeEnum
 state: StateEnum
 @Column()
 totalPrice:number
+@Column()
+theme:string
+@Column()
+nameClient:string
+@Column()
+nameForCard:string
+@Column()
+numCel:string
+@Column()
+num2Cel?:string
+
 @OneToMany(()=>Orderdetail,(orderDet)=>orderDet.order)
 orderDetails:Orderdetail[]
 
