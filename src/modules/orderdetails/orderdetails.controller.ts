@@ -8,23 +8,21 @@ export class OrderdetailsController {
   constructor(private readonly orderdetailsService: OrderdetailsService) {}
 
   @Post()
-  create(@Body() createOrderdetailDto: CreateOrderdetailDto) {
-    return this.orderdetailsService.create(createOrderdetailDto);
-  }
+
 
   @Get()
-  findAll() {
-    return this.orderdetailsService.findAll();
+  async findAll() {
+    return await this.orderdetailsService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.orderdetailsService.findOne(+id);
+  async findOneById(@Param('id') id: string) {
+    return await this.orderdetailsService.findOneById(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateOrderdetailDto: UpdateOrderdetailDto) {
-    return this.orderdetailsService.update(+id, updateOrderdetailDto);
+  async update(@Param('id') id: string, @Body() updateOrderdetailDto: UpdateOrderdetailDto) {
+    return await this.orderdetailsService.update(id, updateOrderdetailDto);
   }
 
   @Delete(':id')

@@ -3,6 +3,10 @@ import { ProductsModule } from './modules/products/products.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { OrderdetailsModule } from './modules/orderdetails/orderdetails.module';
 import { CategoriesModule } from './modules/categories/categories.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { typeOrmConfig } from './config/tpeOrm.config';
+import { ConfigModule } from '@nestjs/config';
+import { SeederModule } from './modules/seeders/seeder.module';
 
 @Module({
   imports: [
@@ -14,7 +18,8 @@ import { CategoriesModule } from './modules/categories/categories.module';
     ProductsModule, 
     OrdersModule,
      OrderdetailsModule,
-      CategoriesModule],
+      CategoriesModule,
+      SeederModule],
   controllers: [],
   providers: [],
 })
