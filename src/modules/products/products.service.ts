@@ -25,7 +25,7 @@ private readonly categoriesService:CategoriesService ){}
   }
 
   async findAll() : Promise<Product[]> {
-    const products = await this.productRepository.find({relations:{categories:true}});
+    const products = await this.productRepository.find({relations:{categories:false}});
     if(!products){
       throw new BadRequestException("No hay productos");
     }

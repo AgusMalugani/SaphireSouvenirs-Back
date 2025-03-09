@@ -10,4 +10,7 @@ export class CreateProductDto {
     details:string
     @IsArray()
     categories:string[]
+
+
+    
 }
