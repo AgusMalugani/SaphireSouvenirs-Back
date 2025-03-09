@@ -22,6 +22,15 @@ app.useGlobalPipes(new ValidationPipe({
   skipMissingProperties:false
   //falta personalizar el error y q agarre todos
 }))
+
+
+app.enableCors({
+    origin: true, 
+    methods: ['GET', 'POST', 'PUT', 'DELETE', "PATCH"],
+    allowedHeaders: 'Content-type, Authorization',
+    credentials: true, 
+});
+
   
   await app.listen(process.env.PORT ?? 3000);
 }
