@@ -1,0 +1,1 @@
+export const categories=["BAUTISMO","COMUNION","CUMPLE","CUMPLEADULTO","CASAMIENTO"]

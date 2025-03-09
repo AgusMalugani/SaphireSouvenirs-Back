@@ -10,13 +10,13 @@ export class CategoriesService {
 constructor(@InjectRepository(Category) private readonly categoryRepository : Repository<Category> ){}
 
   async create(createCategoryDto: CreateCategoryDto) {
-    const{category}=createCategoryDto;
+    const{name}=createCategoryDto;
     
-    const categoryDb = await this.categoryRepository.findOne({where:{category}})
+    const categoryDb = await this.categoryRepository.findOne({where:{name}})
     if(categoryDb){
       throw new BadRequestException("Ya existe una categoria con ese nombre.")
     }
-    const newCategory = this.categoryRepository.create({category : category.toUpperCase()}) //las categorias en mayus
+    const newCategory = this.categoryRepository.create({name : name.toUpperCase()}) //las categorias en mayus
     return this.categoryRepository.save(newCategory);
 
   }
@@ -37,8 +37,8 @@ constructor(@InjectRepository(Category) private readonly categoryRepository : Re
     return category;
   }
 
-  async findOneByCategoryName(category: string) {
-    const categoryByName = await this.categoryRepository.findOne({where:{category}})
+  async findOneByCategoryName(name: string) {
+    const categoryByName = await this.categoryRepository.findOne({where:{name}})
     if(!categoryByName){
       throw new BadRequestException("No hay categoria con ese nombre");
     }

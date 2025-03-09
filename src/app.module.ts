@@ -6,6 +6,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { typeOrmConfig } from './config/tpeOrm.config';
 import { ConfigModule } from '@nestjs/config';
+import { SeederModule } from './modules/seeders/seeder.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { ConfigModule } from '@nestjs/config';
     ProductsModule, 
     OrdersModule,
      OrderdetailsModule,
-      CategoriesModule],
+      CategoriesModule,
+      SeederModule],
   controllers: [],
   providers: [],
 })

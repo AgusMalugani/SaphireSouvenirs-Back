@@ -6,7 +6,7 @@ export class Category {
     @PrimaryGeneratedColumn("uuid")
     id:string
     @Column()
-    category:string
+    name:string
     @ManyToMany(()=>Product,(prod)=>prod.categories)
     products:Product[]
 }

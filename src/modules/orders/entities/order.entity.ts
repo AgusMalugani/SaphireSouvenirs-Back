@@ -16,6 +16,8 @@ transactionType:TransactionTypeEnum
 @Column({default:StateEnum.InProcces})
 state: StateEnum
 @Column()
+address?:string
+@Column()
 totalPrice:number
 @Column()
 theme:string
