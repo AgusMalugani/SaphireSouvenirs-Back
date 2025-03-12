@@ -15,7 +15,7 @@ private readonly orderDetailsService:OrderdetailsService
 
   async create(createOrderDto: CreateOrderDto) {
     const {endOrder,nameClient,nameForCard,
-      num2Cel,numCel,theme,transactionType,products} = createOrderDto;
+      num2Cel,numCel,theme,transactionType,products,address} = createOrderDto;
       console.log(endOrder);
       
       const createAt = dayjs().format("YYYY-MM-DD") //fecha del pedido
@@ -32,6 +32,7 @@ private readonly orderDetailsService:OrderdetailsService
         theme,
         num2Cel,
         numCel,
+        address,
         totalPrice:0,
       });
 
