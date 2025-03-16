@@ -7,7 +7,7 @@ export class Orderdetail {
 @PrimaryGeneratedColumn("uuid")
 id:string
 @Column()
-quantity: number
+cuantity: number
 @Column()
 subTotal:number
 @ManyToOne(()=>Product,(prod)=>prod.orderDetails)

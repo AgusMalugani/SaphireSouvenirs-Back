@@ -16,12 +16,12 @@ private readonly orderDetailsService:OrderdetailsService
   async create(createOrderDto: CreateOrderDto) {
     const {endOrder,nameClient,nameForCard,
       num2Cel,numCel,theme,transactionType,products,address} = createOrderDto;
-      console.log(endOrder);
-      
+
       const createAt = dayjs().format("YYYY-MM-DD") //fecha del pedido
       if(!dayjs(endOrder,"YYYY-MM-DD",true).isValid()){ //fecha de la fiesta
         throw new BadRequestException("El formato de la fecha esta mal, debe ser YYYY-MM-DD");
       }
+      
       //State esta por def inprocess
       const orderSchema = this.orderRepository.create({
         createAt,
@@ -37,15 +37,17 @@ private readonly orderDetailsService:OrderdetailsService
       });
 
       const order = await this.orderRepository.save(orderSchema) //hago esto, para poder obtener la id
-
+      
       const orderDetails = await Promise.all(products.map(async prod=> await this.orderDetailsService.create(prod,order))) ;
+      
       let total= 0;
       orderDetails.map(orderDet => total = total + orderDet.subTotal);
       order.orderDetails = orderDetails;      
        order.totalPrice = total;
        
+       console.log(order);
+       
        return this.orderRepository.save(order);
-
   }
 
   async findAll() : Promise<Order[]> {
@@ -57,7 +59,7 @@ private readonly orderDetailsService:OrderdetailsService
   }
 
  async findOneById(id: string) {
-  const order = await this.orderRepository.findOne({where:{id}})
+  const order = await this.orderRepository.findOne({where:{id},relations:{orderDetails:{product:true}}})
   if(!order){
     throw new BadRequestException("No hay orden con esa id");
   }
