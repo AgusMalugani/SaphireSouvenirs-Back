@@ -6,11 +6,13 @@ import { Order } from './entities/order.entity';
 import { Repository } from 'typeorm';
 import { OrderdetailsService } from './../orderdetails/orderdetails.service';
 import * as dayjs from "dayjs";
+import { NodemailerService } from '../nodemailer/nodemailer.service';
 
 @Injectable()
 export class OrdersService {
 constructor(@InjectRepository(Order)private readonly orderRepository : Repository<Order>,
-private readonly orderDetailsService:OrderdetailsService
+private readonly orderDetailsService:OrderdetailsService,
+private readonly nodemailerService : NodemailerService
 ){}
 
   async create(createOrderDto: CreateOrderDto) {
@@ -46,7 +48,7 @@ private readonly orderDetailsService:OrderdetailsService
        order.totalPrice = total;
        
        console.log(order);
-       
+       this.nodemailerService.sendEmail("agusmalugani97@gmail.com");
        return this.orderRepository.save(order);
   }
 

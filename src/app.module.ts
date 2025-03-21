@@ -7,6 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { typeOrmConfig } from './config/tpeOrm.config';
 import { ConfigModule } from '@nestjs/config';
 import { SeederModule } from './modules/seeders/seeder.module';
+import { NodemailerModule } from './modules/nodemailer/nodemailer.module';
 
 @Module({
   imports: [
@@ -19,7 +20,8 @@ import { SeederModule } from './modules/seeders/seeder.module';
     OrdersModule,
      OrderdetailsModule,
       CategoriesModule,
-      SeederModule],
+      SeederModule,
+      NodemailerModule],
   controllers: [],
   providers: [],
 })
