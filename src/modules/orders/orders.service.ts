@@ -17,7 +17,7 @@ private readonly nodemailerService : NodemailerService
 
   async create(createOrderDto: CreateOrderDto) {
     const {endOrder,nameClient,nameForCard,
-      num2Cel,numCel,theme,transactionType,products,address} = createOrderDto;
+      num2Cel,numCel,theme,transactionType,products,address,email} = createOrderDto;
 
       const createAt = dayjs().format("YYYY-MM-DD") //fecha del pedido
       if(!dayjs(endOrder,"YYYY-MM-DD",true).isValid()){ //fecha de la fiesta
@@ -35,6 +35,7 @@ private readonly nodemailerService : NodemailerService
         num2Cel,
         numCel,
         address,
+        email,
         totalPrice:0,
       });
 
@@ -48,7 +49,7 @@ private readonly nodemailerService : NodemailerService
        order.totalPrice = total;
        
        console.log(order);
-       this.nodemailerService.sendEmail("agusmalugani97@gmail.com");
+       this.nodemailerService.sendEmail(order.email,`http://localhost:5173/postShop/${order.id}`);
        return this.orderRepository.save(order);
   }
 

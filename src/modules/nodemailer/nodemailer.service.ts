@@ -14,14 +14,20 @@ constructor(){
         },
     })
 }
-async sendEmail(email:string){
+async sendEmail(email:string,urlOrder:string){
     try {
         const info = await this.transporter.sendMail({
             from: '"SaphireSouvenirs 👻"hogwarts.back.henry@gmail.com', // sender address
             to: email, // list of receivers
             subject: "Hello ✔", // Subject line
             text: "Hello world?", // plain text body
-            html: "<b>Compra realizada</b>", // html body
+            html: `
+            <b>Compra realizada</b>
+           <b> ${urlOrder} </b>
+            
+            `
+
+            , // html body
           });
           console.log("Message sent: %s", info.messageId);      
           return info   

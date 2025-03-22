@@ -1,4 +1,4 @@
-import { IsArray, IsDateString, IsEnum, IsNumber, IsOptional, IsString } from "class-validator"
+import { IsArray, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator"
 import { TransactionTypeEnum } from "src/enums/transactionType.enum"
 import { CreateOrderdetailDto } from "src/modules/orderdetails/dto/create-orderdetail.dto"
 import { Product } from "src/modules/products/entities/product.entity"
@@ -12,7 +12,7 @@ export class CreateOrderDto {
     
     @IsString()
     @IsOptional()
-    address?:string;
+    address:string;
 
     @IsString()
     theme:string
@@ -28,6 +28,11 @@ export class CreateOrderDto {
 
     @IsString()
     num2Cel:string
+
+
+    @IsEmail()
+    @IsNotEmpty()
+    email:string
 
     @IsArray()
     products:CreateOrderdetailDto[] // aca debo mandar prod + cantidad

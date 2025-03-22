@@ -10,8 +10,8 @@ export class NodemailerController {
 async sendEmail(@Param("email") email:string ){
   console.log(email);
   
-const response = await this.nodemailerService.sendEmail(email);
-return response
+//const response = await this.nodemailerService.sendEmail(email);
+//return response
 
 }
 

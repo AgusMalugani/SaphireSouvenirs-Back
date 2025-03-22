@@ -8,6 +8,8 @@ import { typeOrmConfig } from './config/tpeOrm.config';
 import { ConfigModule } from '@nestjs/config';
 import { SeederModule } from './modules/seeders/seeder.module';
 import { NodemailerModule } from './modules/nodemailer/nodemailer.module';
+import { CloudinaryService } from './services/cloudinary/cloudinary.service'; 
+import { FileUploadModule } from './modules/file-upload/file-upload.module';
 
 @Module({
   imports: [
@@ -21,8 +23,9 @@ import { NodemailerModule } from './modules/nodemailer/nodemailer.module';
      OrderdetailsModule,
       CategoriesModule,
       SeederModule,
-      NodemailerModule],
+      NodemailerModule,
+      FileUploadModule],
   controllers: [],
-  providers: [],
+  providers: [CloudinaryService],
 })
 export class AppModule {}
