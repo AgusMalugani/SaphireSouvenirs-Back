@@ -7,12 +7,13 @@ import { Repository } from 'typeorm';
 import { OrderdetailsService } from './../orderdetails/orderdetails.service';
 import * as dayjs from "dayjs";
 import { NodemailerService } from '../nodemailer/nodemailer.service';
+import * as dotenv from "dotenv"
 
 @Injectable()
 export class OrdersService {
 constructor(@InjectRepository(Order)private readonly orderRepository : Repository<Order>,
 private readonly orderDetailsService:OrderdetailsService,
-private readonly nodemailerService : NodemailerService
+private readonly nodemailerService : NodemailerService,
 ){}
 
   async create(createOrderDto: CreateOrderDto) {
@@ -20,10 +21,7 @@ private readonly nodemailerService : NodemailerService
       num2Cel,numCel,theme,transactionType,products,address,email} = createOrderDto;
 
       const createAt = dayjs().format("YYYY-MM-DD") //fecha del pedido
-      if(!dayjs(endOrder,"YYYY-MM-DD",true).isValid()){ //fecha de la fiesta
-        throw new BadRequestException("El formato de la fecha esta mal, debe ser YYYY-MM-DD");
-      }
-      
+     
       //State esta por def inprocess
       const orderSchema = this.orderRepository.create({
         createAt,
@@ -49,7 +47,7 @@ private readonly nodemailerService : NodemailerService
        order.totalPrice = total;
        
        console.log(order);
-       this.nodemailerService.sendEmail(order.email,`http://localhost:5173/postShop/${order.id}`);
+       this.nodemailerService.sendEmail(order.email,`${process.env.URL_CLIENT}postShop/${order.id}`);
        return this.orderRepository.save(order);
   }
 
