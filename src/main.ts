@@ -1,8 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { CategoriesSeed } from './modules/seeders/categories/categories.seed';
 import { ProductsSeed } from './modules/seeders/products/products.seed';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -19,9 +20,24 @@ console.log("Productos cargado");
 app.useGlobalPipes(new ValidationPipe({
   transform:true,
   whitelist:true,
-  skipMissingProperties:false
-  //falta personalizar el error y q agarre todos
+  skipMissingProperties:false,
+  exceptionFactory: (errors)=>{
+    const errores = errors.map((error)=>{
+       return {property : error.property, constraints: error.constraints};
+  });
+ return new BadRequestException({alert: "Se han detectado los siguientes errores",errors: errores})
+  }
 }))
+
+const swaggerConfig = new DocumentBuilder()
+    .setTitle('SaphireSouvenirs API')
+    .setDescription('Documentación de la API para manejar datos de la app de SaphireSouvenirs')
+    .setVersion('1.0')
+    .addBearerAuth() 
+    .build();
+
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api', app, document);
 
 
 app.enableCors({
