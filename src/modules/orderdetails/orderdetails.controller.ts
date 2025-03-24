@@ -9,9 +9,7 @@ import { ApiTags } from '@nestjs/swagger';
 export class OrderdetailsController {
   constructor(private readonly orderdetailsService: OrderdetailsService) {}
 
-  @Post()
-
-
+  
   @Get()
   async findAll() {
     return await this.orderdetailsService.findAll();
