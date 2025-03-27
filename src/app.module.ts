@@ -10,6 +10,9 @@ import { SeederModule } from './modules/seeders/seeder.module';
 import { NodemailerModule } from './modules/nodemailer/nodemailer.module';
 import { CloudinaryService } from './services/cloudinary/cloudinary.service'; 
 import { FileUploadModule } from './modules/file-upload/file-upload.module';
+import { UsersModule } from './modules/users/users.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -18,13 +21,20 @@ import { FileUploadModule } from './modules/file-upload/file-upload.module';
       envFilePath: '.env',  
       isGlobal: true, 
     }),
+    JwtModule.register({
+          global: true,
+          secret: process.env.JWT_SECRET||"clavesecret",
+          signOptions: { expiresIn: '60m' }
+        }),
     ProductsModule, 
     OrdersModule,
      OrderdetailsModule,
       CategoriesModule,
       SeederModule,
       NodemailerModule,
-      FileUploadModule],
+      FileUploadModule,
+      UsersModule,
+      AuthModule],
   controllers: [],
   providers: [CloudinaryService],
 })
