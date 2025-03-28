@@ -14,8 +14,8 @@ constructor(@InjectRepository(User) private readonly usersRepository : Repositor
     return this.usersRepository.save(user);;
   }
 
-  findAll() {
-    return `This action returns all users`;
+  async findAll() {
+    return await this.usersRepository.find();
   }
 
   findOne(id: number) {
