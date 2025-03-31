@@ -4,6 +4,7 @@ import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { CategoriesSeed } from './modules/seeders/categories/categories.seed';
 import { ProductsSeed } from './modules/seeders/products/products.seed';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { UsersSeed } from './modules/seeders/users/users.seed';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -14,6 +15,10 @@ console.log("categorias cargadas");
 const products = app.get(ProductsSeed)
 await products.seed();
 console.log("Productos cargado");
+
+const user = app.get(UsersSeed)
+await user.seed();
+console.log("Admin cargado");
 
 
 //validationpipe global

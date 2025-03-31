@@ -5,6 +5,8 @@ import { SigninDto } from './dto/signin.dto';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { CreateUserDto } from '../users/dto/create-user.dto';
+import * as bcrypt from "bcryptjs"
+import { ResponseUserDto } from '../users/dto/response-use.dto';
 
 
 
@@ -24,7 +26,8 @@ if(userDb){
   throw new BadRequestException("Ya existe un usuario con ese email!");
 }
 
-const user = await this.usersService.create(createUserDto);
+const passwordHash = bcrypt.hashSync(password,10)
+const user = await this.usersService.create({...createUserDto,password:passwordHash});
 
 return user
   
@@ -39,7 +42,9 @@ if(!user){
   throw new BadRequestException("Credenciales incorrectas!");
 }
 
-if(user.password !== password){
+const matchPassword = bcrypt.compareSync(password, user.password)
+
+if(!matchPassword){
 throw new BadRequestException("Credenciales incorrectas!");
 }
 
@@ -49,9 +54,9 @@ const payload = {
   email:user.email
 }
 
-const token = await this.jwtService.sign(payload,{secret: process.env.JWT_SECRET})
-
-return {token, user};
+const token =  this.jwtService.sign(payload,{secret: process.env.JWT_SECRET})
+const responseUser = new ResponseUserDto(user);
+return {token, user:responseUser};
 }
 
 
