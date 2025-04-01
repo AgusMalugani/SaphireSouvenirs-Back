@@ -38,6 +38,9 @@ export class CreateProductDto {
     @ArrayMinSize(1)
     categories:string[]
 
+    @IsString()
+    img_url:string;
+
 
     
 }

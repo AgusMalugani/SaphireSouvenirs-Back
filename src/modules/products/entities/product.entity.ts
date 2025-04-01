@@ -12,7 +12,7 @@ name:string
 @Column()
 price:number
 @Column({default:"http://www.exampleImg.com"})
-img_url?:string
+img_url:string
 @Column()
 details:string
 @Column({default:true})

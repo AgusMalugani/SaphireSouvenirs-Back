@@ -20,7 +20,6 @@ export class FileUploadController {
     size:file.size
   });
 
-
   return {img:img,id:id};
   }
 
