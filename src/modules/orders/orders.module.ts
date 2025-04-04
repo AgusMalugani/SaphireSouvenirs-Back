@@ -11,11 +11,13 @@ import { CategoriesService } from '../categories/categories.service';
 import { Category } from '../categories/entities/category.entity';
 import { NodemailerService } from '../nodemailer/nodemailer.service';
 import { ValidateEndOrderMiddleware } from 'src/middlewares/validate-end-order/validate-end-order.middleware';
+import { FileUploadService } from '../file-upload/file-upload.service';
+import { CloudinaryService } from 'src/services/cloudinary/cloudinary.service';
 
 @Module({
   imports:[TypeOrmModule.forFeature([Order,Orderdetail,Product,Category])],
   controllers: [OrdersController],
-  providers: [OrdersService,OrderdetailsService,OrderdetailsService,ProductsService,CategoriesService,NodemailerService],
+  providers: [OrdersService,OrderdetailsService,OrderdetailsService,ProductsService,CategoriesService,NodemailerService,FileUploadService,CloudinaryService],
   exports:[OrdersService]
 })
 export class OrdersModule implements NestModule {

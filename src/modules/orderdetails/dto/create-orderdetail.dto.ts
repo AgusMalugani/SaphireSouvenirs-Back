@@ -1,4 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger"
+import { Transform } from "class-transformer"
 import { IsArray, IsNotEmpty, IsNumber, IsString } from "class-validator"
 import { Product } from "src/modules/products/entities/product.entity"
 
@@ -8,6 +9,7 @@ export class CreateOrderdetailDto {
             example:10
         })
         @IsNotEmpty()
+        @Transform(({ value }) => Number(value))
         @IsNumber()
         cuantity:number
         

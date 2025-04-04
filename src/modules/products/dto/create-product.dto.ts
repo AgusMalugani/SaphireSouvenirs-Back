@@ -1,4 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger"
+import { Transform } from "class-transformer"
 import { ArrayMinSize, IsArray, IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, MinLength } from "class-validator"
 import { CardsEnum } from "src/enums/cards.enum"
 
@@ -17,6 +18,7 @@ export class CreateProductDto {
         description:"precio por unidad",
         example:"2500"
     })
+    @Transform(({ value }) => Number(value))
     @IsNumber()
     price:number
 

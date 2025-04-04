@@ -5,11 +5,13 @@ import { ProductsService } from '../products/products.service';
 import { Category } from './entities/category.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Product } from '../products/entities/product.entity';
+import { CloudinaryService } from 'src/services/cloudinary/cloudinary.service';
+import { FileUploadService } from '../file-upload/file-upload.service';
 
 @Module({
   imports:[TypeOrmModule.forFeature([Category,Product])],
   controllers: [CategoriesController],
-  providers: [CategoriesService,ProductsService],
+  providers: [CategoriesService,ProductsService,FileUploadService,CloudinaryService],
   exports:[CategoriesService]
 })
 export class CategoriesModule {}
