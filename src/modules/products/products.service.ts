@@ -43,7 +43,7 @@ private readonly fileUploadService:FileUploadService ){}
   }
 
   async findOneById(id: string) : Promise<Product>{
-    const prod = await this.productRepository.findOne({where:{id}})
+    const prod = await this.productRepository.findOne({where:{id},relations:{categories:true}})
     if(!prod){ 
       throw new BadRequestException("No hay productos con esa id");
     }
