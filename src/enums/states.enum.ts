@@ -1,6 +1,6 @@
 export enum StateEnum{
-    PartialPayment = "partialPayment",
-    Paid="paid",
-    InProcces="inProcces"
-    
+  PartialPayment = "partialPayment",
+  Paid="paid",
+  InProcces="inProcces"
+  
 }

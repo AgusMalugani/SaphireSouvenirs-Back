@@ -22,7 +22,7 @@ constructor(@InjectRepository(Category) private readonly categoryRepository : Re
   }
 
   async findAll() {
-    const categories = await this.categoryRepository.find()
+    const categories = await this.categoryRepository.find({relations:{products:false}})
     if(!categories){
       throw new BadRequestException("No hay categorias");
     }

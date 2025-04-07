@@ -7,19 +7,29 @@ import { Repository } from 'typeorm';
 import { CategoriesService } from './../categories/categories.service';
 import { Category } from '../categories/entities/category.entity';
 import { CardsEnum } from 'src/enums/cards.enum';
+import { FileUploadService } from '../file-upload/file-upload.service';
 
 @Injectable()
 export class ProductsService {
 constructor( @InjectRepository(Product) private readonly productRepository : Repository<Product>,
-private readonly categoriesService:CategoriesService ){}
+private readonly categoriesService:CategoriesService,
+private readonly fileUploadService:FileUploadService ){}
 
 
-  async create(createProductDto: CreateProductDto) :Promise<Product> {
+  async create(createProductDto: CreateProductDto, file : Express.Multer.File) :Promise<Product> {
     const {categories,details,name,price} = createProductDto;
     console.log(createProductDto);
-    
+    const img= await this.fileUploadService.uploadFile({
+      buffer:file.buffer,
+      fieldName:file.fieldname,
+      mimeType:file.mimetype,
+      originalName:file.originalname,
+      size:file.size
+    });
+  console.log(img);
+  
       const categoriesBd : Category[] = await Promise.all(categories.map(async cat=> await this.categoriesService.findOneByCategoryName(cat.toUpperCase())) ) //array string
-      const product = this.productRepository.create({name,price,details,categories:categoriesBd});    
+      const product = this.productRepository.create({name,price,details,categories:categoriesBd,img_url:img});    
       return this.productRepository.save(product);
     
   }
@@ -33,7 +43,7 @@ private readonly categoriesService:CategoriesService ){}
   }
 
   async findOneById(id: string) : Promise<Product>{
-    const prod = await this.productRepository.findOne({where:{id}})
+    const prod = await this.productRepository.findOne({where:{id},relations:{categories:true}})
     if(!prod){ 
       throw new BadRequestException("No hay productos con esa id");
     }

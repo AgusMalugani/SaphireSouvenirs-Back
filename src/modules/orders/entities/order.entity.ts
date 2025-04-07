@@ -16,7 +16,7 @@ transactionType:TransactionTypeEnum
 @Column({default:StateEnum.InProcces})
 state: StateEnum
 @Column()
-address?:string
+address:string
 @Column()
 totalPrice:number
 @Column()
@@ -29,7 +29,8 @@ nameForCard:string
 numCel:string
 @Column()
 num2Cel?:string
-
+@Column()
+email : string
 @OneToMany(()=>Orderdetail,(orderDet)=>orderDet.order)
 orderDetails:Orderdetail[]
 

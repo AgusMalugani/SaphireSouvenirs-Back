@@ -13,20 +13,20 @@ constructor(@InjectRepository(Orderdetail) private readonly orderDetailRepositor
 private readonly productService : ProductsService ){}
 
   async create(createOrderdetailDto: CreateOrderdetailDto,order:Order) {
-    const{productId,quantity}=createOrderdetailDto;
+    const{productId,cuantity}=createOrderdetailDto
     const product = await this.productService.findOneById(productId);
     if(!product){
       throw new BadRequestException("No existe ese producto");
     }
+    
 
-      
       if(product.stock === false){
         throw new BadRequestException("El producto, no esta en stock"); //esto no deberia pasar.
       }
+      const subTotal= product.price * cuantity
 
-      const subTotal= product.price * quantity
-    
-const orderDetail = this.orderDetailRepository.create({product,quantity,subTotal,order});
+const orderDetail = this.orderDetailRepository.create({product,cuantity,subTotal,order});
+
 return this.orderDetailRepository.save(orderDetail);  
 }
 

@@ -17,7 +17,7 @@ export const typeOrmConfig: TypeOrmModuleOptions = {
   migrations: ['dist/migrations/*{.js,.ts}'],
   synchronize: true,
   dropSchema: true,
-  logging: true,
+  //logging: true,
     ssl: { 
       rejectUnauthorized: false, // Render requiere esto para conexiones seguras
     }

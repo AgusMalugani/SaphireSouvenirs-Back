@@ -7,6 +7,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { typeOrmConfig } from './config/tpeOrm.config';
 import { ConfigModule } from '@nestjs/config';
 import { SeederModule } from './modules/seeders/seeder.module';
+import { NodemailerModule } from './modules/nodemailer/nodemailer.module';
+import { CloudinaryService } from './services/cloudinary/cloudinary.service'; 
+import { FileUploadModule } from './modules/file-upload/file-upload.module';
+import { UsersModule } from './modules/users/users.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -15,12 +21,21 @@ import { SeederModule } from './modules/seeders/seeder.module';
       envFilePath: '.env',  
       isGlobal: true, 
     }),
+    JwtModule.register({
+          global: true,
+          secret: process.env.JWT_SECRET||"clavesecret",
+          signOptions: { expiresIn: '60m' }
+        }),
     ProductsModule, 
     OrdersModule,
      OrderdetailsModule,
       CategoriesModule,
-      SeederModule],
+      SeederModule,
+      NodemailerModule,
+      FileUploadModule,
+      UsersModule,
+      AuthModule],
   controllers: [],
-  providers: [],
+  providers: [CloudinaryService],
 })
 export class AppModule {}
