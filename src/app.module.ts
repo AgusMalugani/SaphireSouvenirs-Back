@@ -13,6 +13,7 @@ import { FileUploadModule } from './modules/file-upload/file-upload.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtModule } from '@nestjs/jwt';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -35,7 +36,7 @@ import { JwtModule } from '@nestjs/jwt';
       FileUploadModule,
       UsersModule,
       AuthModule],
-  controllers: [],
+  controllers: [AppController],
   providers: [CloudinaryService],
 })
 export class AppModule {}
