@@ -54,7 +54,7 @@ const payload = {
   email:user.email
 }
 
-const token =  this.jwtService.sign(payload,{secret: process.env.JWT_SECRET,expiresIn:"60m"})
+const token =  this.jwtService.sign(payload,{secret: process.env.JWT_SECRET,expiresIn:"4h"})
 const responseUser = new ResponseUserDto(user);
 return {token, user:responseUser};
 }
