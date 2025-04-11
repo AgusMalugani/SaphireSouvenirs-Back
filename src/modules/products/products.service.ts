@@ -35,7 +35,7 @@ private readonly fileUploadService:FileUploadService ){}
   }
 
   async findAll() : Promise<Product[]> {
-    const products = await this.productRepository.find({relations:{categories:false}});
+    const products = await this.productRepository.find({relations:{categories:true}});
     if(!products){
       throw new BadRequestException("No hay productos");
     }
