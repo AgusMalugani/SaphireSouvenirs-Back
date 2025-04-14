@@ -31,7 +31,8 @@ export class ProductsController {
 
   @Put(':id')
   async update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
-    return await this.productsService.update(id, updateProductDto);
+    const product = await this.productsService.update(id, updateProductDto);
+    return product
   }
 
   @Delete(':id')
@@ -51,6 +52,7 @@ export class ProductsController {
     originalName:file.originalname,
     size:file.size
   });
+console.log(img);
 
  await this.productsService.update(id,{img_url:img})
   return {img:img};

@@ -26,7 +26,6 @@ private readonly fileUploadService:FileUploadService ){}
       originalName:file.originalname,
       size:file.size
     });
-  console.log(img);
   
       const categoriesBd : Category[] = await Promise.all(categories.map(async cat=> await this.categoriesService.findOneByCategoryName(cat.toUpperCase())) ) //array string
       const product = this.productRepository.create({name,price,details,categories:categoriesBd,img_url:img});    
@@ -35,7 +34,7 @@ private readonly fileUploadService:FileUploadService ){}
   }
 
   async findAll() : Promise<Product[]> {
-    const products = await this.productRepository.find({relations:{categories:false}});
+    const products = await this.productRepository.find({relations:{categories:true}});
     if(!products){
       throw new BadRequestException("No hay productos");
     }
@@ -52,7 +51,16 @@ private readonly fileUploadService:FileUploadService ){}
 
   async update(id: string, updateProductDto: UpdateProductDto) {
     const prod = await this.findOneById(id);
-    Object.assign(prod,updateProductDto)
+    const catExistProd = prod.categories.map(cat => cat.name)
+        
+    if(Array.isArray(updateProductDto.categories) && updateProductDto.categories !== catExistProd){
+      const categoriesBd : Category[] = await Promise.all(updateProductDto.categories?.map(async cat=> await this.categoriesService.findOneByCategoryName(cat)) ) //array string
+      console.log("entro al if de cat distintas");
+      Object.assign(prod,{...updateProductDto,categories:categoriesBd})
+    }else{
+      Object.assign(prod,updateProductDto)
+    }
+
     return this.productRepository.save(prod);
 
   }
