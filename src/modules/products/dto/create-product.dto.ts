@@ -36,9 +36,17 @@ export class CreateProductDto {
             description:"Array con nombre Categorias",
             example:"[{`name`:`SOUVENIRS`}]"
         })
-    @IsArray()
-    @ArrayMinSize(1)
-    categories:string[]
+        @IsArray()
+        @ArrayMinSize(1)
+        @IsString({ each: true })
+        @Transform(({ value }) =>
+          Array.isArray(value)
+            ? value.map((item) =>
+                typeof item === 'string' ? item : item.name
+              )
+            : []
+        )
+        categories: string[]
 
     @IsString()
     img_url:string;
