@@ -2,7 +2,6 @@ import { ApiProperty } from "@nestjs/swagger"
 import { ArrayMinSize, IsArray, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, MinLength } from "class-validator"
 import { TransactionTypeEnum } from "src/enums/transactionType.enum"
 import { CreateOrderdetailDto } from "src/modules/orderdetails/dto/create-orderdetail.dto"
-import { Product } from "src/modules/products/entities/product.entity"
 
 export class CreateOrderDto {
     @ApiProperty({

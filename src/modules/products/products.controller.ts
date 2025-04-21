@@ -1,10 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Put, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Put, UseInterceptors, UploadedFile, UseGuards } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FileUploadService } from '../file-upload/file-upload.service';
+import { Roles } from 'src/decorators/roles.decorator';
+import { AuthGuard } from 'src/guards/auth.guard';
+import { RolesGuard } from 'src/guards/roles.guard';
 
 @ApiTags("Products")
 @Controller('products')
@@ -13,12 +16,16 @@ export class ProductsController {
     private readonly fileUploadService: FileUploadService
   ) {}
 
+  @UseGuards(AuthGuard,RolesGuard)
+  @Roles("admin")
+  @ApiBearerAuth()  
   @Post()
   @UseInterceptors(FileInterceptor("file"))
   create(@UploadedFile() file : Express.Multer.File , @Body() createProductDto: CreateProductDto) {
     return this.productsService.create(createProductDto,file);
   }
 
+  
   @Get()
   async findAll() {
     return await this.productsService.findAll();
@@ -29,6 +36,10 @@ export class ProductsController {
     return await this.productsService.findOneById(id);
   }
 
+
+  @UseGuards(AuthGuard,RolesGuard)
+  @Roles("admin")
+  @ApiBearerAuth()  
   @Put(':id')
   async update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
     const product = await this.productsService.update(id, updateProductDto);
@@ -41,6 +52,9 @@ export class ProductsController {
   }
 
 
+  @UseGuards(AuthGuard,RolesGuard)
+  @Roles("admin")
+  @ApiBearerAuth()  
 @Post("upload/:id")
   @UseInterceptors(FileInterceptor("file"))
  async uploadImage(@Param("id")id:string, @UploadedFile() file : Express.Multer.File) {
