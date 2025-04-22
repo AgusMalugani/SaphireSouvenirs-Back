@@ -36,7 +36,7 @@ export class CreateOrderDto {
     })
     @IsNotEmpty()
     @IsString()
-    @MinLength(10)
+    //@MinLength(10)
     @MaxLength(250)
     theme:string
 
@@ -66,8 +66,8 @@ export class CreateOrderDto {
     })
     @IsNotEmpty()
     @IsString()
-    @MinLength(10)
-    @MaxLength(15)
+    //@MinLength(10)
+    //@MaxLength(15)
     numCel:string
 
     @ApiProperty({
@@ -76,8 +76,8 @@ export class CreateOrderDto {
     })
     @IsNotEmpty()
     @IsString()
-    @MinLength(10)
-    @MaxLength(15)
+    //@MinLength(10)
+    //@MaxLength(15)
     num2Cel:string
 
 
