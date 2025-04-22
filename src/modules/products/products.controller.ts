@@ -22,6 +22,7 @@ export class ProductsController {
   @Post()
   @UseInterceptors(FileInterceptor("file"))
   create(@UploadedFile() file : Express.Multer.File , @Body() createProductDto: CreateProductDto) {
+ 
     return this.productsService.create(createProductDto,file);
   }
 

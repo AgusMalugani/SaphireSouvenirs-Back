@@ -18,7 +18,6 @@ private readonly fileUploadService:FileUploadService ){}
 
   async create(createProductDto: CreateProductDto, file : Express.Multer.File) :Promise<Product> {
     const {categories,details,name,price} = createProductDto;
-    console.log(createProductDto);
     const img= await this.fileUploadService.uploadFile({
       buffer:file.buffer,
       fieldName:file.fieldname,
