@@ -51,7 +51,8 @@ throw new BadRequestException("Credenciales incorrectas!");
 const payload = {
   sub:user.id,
   id:user.id,
-  email:user.email
+  email:user.email,
+  roles:"admin"
 }
 
 const token =  this.jwtService.sign(payload,{secret: process.env.JWT_SECRET,expiresIn:"4h"})

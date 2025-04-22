@@ -10,9 +10,10 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  create(@Body() createOrderDto: CreateOrderDto) {
+  async create(@Body() createOrderDto: CreateOrderDto) {
+    console.log(createOrderDto);
     
-    return this.ordersService.create(createOrderDto);
+    return await this.ordersService.create(createOrderDto);
   }
 
   @Get()
