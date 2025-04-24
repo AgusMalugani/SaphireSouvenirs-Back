@@ -39,8 +39,10 @@ private readonly nodemailerService : NodemailerService,
 
       const order = await this.orderRepository.save(orderSchema) //hago esto, para poder obtener la id
       
-      const orderDetails = await Promise.all(products.map(async prod=> await this.orderDetailsService.create(prod,order))) ;
+
       
+      const orderDetails = await Promise.all(products.map(async prod=> await this.orderDetailsService.create(prod,order))) ;
+
       let total= 0;
       orderDetails.map(orderDet => total = total + orderDet.subTotal);
       order.orderDetails = orderDetails;      

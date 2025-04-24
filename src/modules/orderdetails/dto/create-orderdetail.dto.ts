@@ -9,7 +9,12 @@ export class CreateOrderdetailDto {
             example:10
         })
         @IsNotEmpty()
-        @Transform(({ value }) => Number(value))
+        @Transform(({ value }) => {const numberValue = Number(value);
+            if (isNaN(numberValue)) {
+                throw new Error(`El valor proporcionado para "cuantity" no es un número válido: ${value}`);
+            }
+            return numberValue;
+        })
         @IsNumber()
         cuantity:number
         
