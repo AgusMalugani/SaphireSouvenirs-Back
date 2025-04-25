@@ -13,6 +13,9 @@ constructor(@InjectRepository(Orderdetail) private readonly orderDetailRepositor
 private readonly productService : ProductsService ){}
 
   async create(createOrderdetailDto: CreateOrderdetailDto,order:Order) {
+   
+    console.log(createOrderdetailDto);
+    
     const{productId,cuantity}=createOrderdetailDto
     const product = await this.productService.findOneById(productId);
     if(!product){
@@ -26,7 +29,7 @@ private readonly productService : ProductsService ){}
       const subTotal= product.price * cuantity
 
 const orderDetail = this.orderDetailRepository.create({product,cuantity,subTotal,order});
-
+console.log(orderDetail);
 return this.orderDetailRepository.save(orderDetail);  
 }
 

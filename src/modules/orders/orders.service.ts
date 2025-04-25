@@ -16,40 +16,109 @@ private readonly orderDetailsService:OrderdetailsService,
 private readonly nodemailerService : NodemailerService,
 ){}
 
-  async create(createOrderDto: CreateOrderDto) {
-    const {endOrder,nameClient,nameForCard,
-      num2Cel,numCel,theme,transactionType,products,address,email} = createOrderDto;
+async create(createOrderDto: CreateOrderDto) {
+  const {
+    endOrder,
+    nameClient,
+    nameForCard,
+    num2Cel,
+    numCel,
+    theme,
+    transactionType,
+    products,
+    address,
+    email,
+  } = createOrderDto;
 
-      const createAt = dayjs().format("YYYY-MM-DD") //fecha del pedido
-     
-      //State esta por def inprocess
-      const orderSchema = this.orderRepository.create({
-        createAt,
-        endOrder,
-        transactionType,
-        nameClient,
-        nameForCard,
-        theme,
-        num2Cel,
-        numCel,
-        address,
-        email,
-        totalPrice:0,
-      });
+  const createAt = dayjs().format("YYYY-MM-DD"); // Fecha del pedido
 
-      const order = await this.orderRepository.save(orderSchema) //hago esto, para poder obtener la id
-      
-      const orderDetails = await Promise.all(products.map(async prod=> await this.orderDetailsService.create(prod,order))) ;
-      
-      let total= 0;
-      orderDetails.map(orderDet => total = total + orderDet.subTotal);
-      order.orderDetails = orderDetails;      
-       order.totalPrice = total;
-       
-       console.log(order);
-       this.nodemailerService.sendEmail(order.email,`${process.env.URL_CLIENT}postShop/${order.id}`);
-       return this.orderRepository.save(order);
+  // Crear la orden
+  const orderSchema = this.orderRepository.create({
+    createAt,
+    endOrder,
+    transactionType,
+    nameClient,
+    nameForCard,
+    theme,
+    num2Cel,
+    numCel,
+    address,
+    email,
+    totalPrice: 0,
+  });
+
+  const order = await this.orderRepository.save(orderSchema); // Guardar la orden para obtener la ID
+
+  try {
+    // Crear los detalles de la orden
+    const orderDetails = await Promise.all(
+      products.map(async (prod) => await this.orderDetailsService.create(prod, order))
+    );
+
+    // Calcular el total
+    let total = 0;
+    const orderItemsHtml = orderDetails
+      .map((orderDet) => {
+        total += orderDet.subTotal;
+        return `
+          <tr>
+              <td>${orderDet.product.name}</td>
+              <td>${orderDet.cuantity}</td>
+              <td>$${orderDet.product.price.toFixed(2)}</td>
+              <td>$${orderDet.subTotal.toFixed(2)}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    order.orderDetails = orderDetails;
+    order.totalPrice = total;
+
+    // Actualizar la orden con el total y los detalles
+    await this.orderRepository.save(order);
+
+    // Enviar correo con los detalles de la orden
+    const emailHtml = `
+    <html>
+    <body>
+        <h1>Confirmación de Pedido</h1>
+        <p>Gracias por tu compra, ${nameClient}. Aquí están los detalles de tu pedido:</p>
+        <table border="1" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Precio Unitario</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${orderItemsHtml}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" style="text-align: right;"><strong>Total:</strong></td>
+                    <td><strong>$${total.toFixed(2)}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+        <p>Puedes ver más detalles de tu pedido <a href="${process.env.URL_CLIENT}postShop/${order.id}">aquí</a>.</p>
+        <p>Gracias por elegir SaphireSouvenirs.</p>
+    </body>
+    </html>
+    `;
+
+    await this.nodemailerService.sendEmail(email, emailHtml);
+
+    return order;
+  } catch (error) {
+    // Si ocurre un error, elimina la orden creada
+    await this.orderRepository.delete(order.id);
+    throw error; // Re-lanza el error para que sea manejado por el controlador
   }
+}
+
+
 
   async findAll() : Promise<Order[]> {
     const orders = await this.orderRepository.find({relations:{orderDetails:true}});

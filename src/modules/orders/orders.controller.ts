@@ -11,7 +11,7 @@ export class OrdersController {
 
   @Post()
   async create(@Body() createOrderDto: CreateOrderDto) {
-    console.log(createOrderDto);
+    //console.log(createOrderDto);
     
     return await this.ordersService.create(createOrderDto);
   }
