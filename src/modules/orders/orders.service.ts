@@ -44,13 +44,59 @@ private readonly nodemailerService : NodemailerService,
       const orderDetails = await Promise.all(products.map(async prod=> await this.orderDetailsService.create(prod,order))) ;
 
       let total= 0;
-      orderDetails.map(orderDet => total = total + orderDet.subTotal);
-      order.orderDetails = orderDetails;      
+     // orderDetails.map(orderDet => total = total + orderDet.subTotal);
+     const orderItemsHtml = orderDetails.map((orderDet) => {
+      total += orderDet.subTotal;
+      return `
+          <tr>
+              <td>${orderDet.product.name}</td>
+              <td>${orderDet.cuantity}</td>
+              <td>$${orderDet.product.price.toFixed(2)}</td>
+              <td>$${orderDet.subTotal.toFixed(2)}</td>
+          </tr>
+      `;
+  }).join("");
+     
+     order.orderDetails = orderDetails;      
        order.totalPrice = total;
        
-       console.log(order);
-       this.nodemailerService.sendEmail(order.email,`${process.env.URL_CLIENT}postShop/${order.id}`);
-       return this.orderRepository.save(order);
+     //  console.log(order);
+      // this.nodemailerService.sendEmail(order.email,`${process.env.URL_CLIENT}postShop/${order.id}`);
+      // Enviar correo con los detalles de la orden
+    const emailHtml = `
+    <html>
+    <body>
+        <h1>Confirmación de Pedido</h1>
+        <p>Gracias por tu compra, ${nameClient}. Aquí están los detalles de tu pedido:</p>
+        <table border="1" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Precio Unitario</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${orderItemsHtml}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" style="text-align: right;"><strong>Total:</strong></td>
+                    <td><strong>$${total.toFixed(2)}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+        <p>Puedes ver más detalles de tu pedido <a href="${process.env.URL_CLIENT}postShop/${order.id}">aquí</a>.</p>
+        <p>Gracias por elegir SaphireSouvenirs.</p>
+    </body>
+    </html>
+`;
+
+await this.nodemailerService.sendEmail(email, emailHtml);
+
+      
+      return this.orderRepository.save(order);
   }
 
   async findAll() : Promise<Order[]> {
