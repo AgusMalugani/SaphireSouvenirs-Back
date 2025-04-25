@@ -18,8 +18,8 @@ constructor(){
 async sendEmail(email: string,  htmlContent: string) {
   try {
       const info = await this.transporter.sendMail({
-          from: '"SaphireSouvenirs 👻" <hogwarts.back.henry@gmail.com>',
-          to: email,
+          from: '"SaphireSouvenirs" <hogwarts.back.henry@gmail.com>', //CAMBIAR MAIL
+          to: [email, "agusmalugani97@gmail.com"], //CAMBIAR MAIL
           subject: "Confirmación de Pedido ✔",
           html: htmlContent,
       });
