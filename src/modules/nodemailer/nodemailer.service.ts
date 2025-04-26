@@ -20,7 +20,7 @@ constructor(){
 
 async sendEmail(email: string,  htmlContent: string) {
     console.log(process.env.NODEMAILER_USER);
-    console.log(process.env.NODEMAILER_PASS);
+  console.log('NODEMAILER_PASS:', process.env.NODEMAILER_PASS ? '✅' : '❌ No password');
   try {
       const info = await this.transporter.sendMail({
           from: '"SaphireSouvenirs" <hogwarts.back.henry@gmail.com>', //CAMBIAR MAIL
@@ -30,9 +30,13 @@ async sendEmail(email: string,  htmlContent: string) {
       });
 
       console.log("Message sent: %s", info.messageId);
+      console.log("Info completo:", JSON.stringify(info, null, 2));
+
       return info; 
   } catch (error) {
-      console.error('Error sending email:', error);
+    
+    console.error('❌ Error enviando el email:');
+      console.error(error);
       throw new ConflictException('Error sending email');
   }
 }
