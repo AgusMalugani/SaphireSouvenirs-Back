@@ -5,6 +5,7 @@ import { CategoriesSeed } from './modules/seeders/categories/categories.seed';
 import { ProductsSeed } from './modules/seeders/products/products.seed';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { UsersSeed } from './modules/seeders/users/users.seed';
+import { envs } from './config/envs';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -20,6 +21,7 @@ const user = app.get(UsersSeed)
 await user.seed();
 console.log("Admin cargado");
 
+app.setGlobalPrefix('api/v1');
 
 //validationpipe global
 app.useGlobalPipes(new ValidationPipe({
@@ -53,6 +55,7 @@ app.enableCors({
 });
 
   
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(envs.PORT);  
+  console.log(`Server is running on port ${envs.PORT}`);
 }
 bootstrap();

@@ -1,6 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 
 import * as nodemailer from "nodemailer"
+import { envs } from 'src/config/envs';
 
 
 
@@ -11,20 +12,18 @@ constructor(){
     this.transporter= nodemailer.createTransport({
        service:"gmail",
         auth: {
-          user:process.env.NODEMAILER_USER,
-          pass:process.env.NODEMAILER_PASS,
+          user:envs.NODEMAILER_USER,
+          pass:envs.NODEMAILER_PASS,
         },
     })
     
 }
 
 async sendEmail(email: string,  htmlContent: string) {
-    console.log(process.env.NODEMAILER_USER);
-  console.log('NODEMAILER_PASS:', process.env.NODEMAILER_PASS ? '✅' : '❌ No password');
   try {
       const info = await this.transporter.sendMail({
-          from: '"SaphireSouvenirs" <hogwarts.back.henry@gmail.com>', //CAMBIAR MAIL
-          to: [email, "agusmalugani97@gmail.com"], //CAMBIAR MAIL
+          from: `"SaphireSouvenirs" <${envs.NODEMAILER_FROM}>`,
+          to: [email, envs.NODEMAILER_CC],
           subject: "Confirmación de Pedido ✔",
           html: htmlContent,
       });

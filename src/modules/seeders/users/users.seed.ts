@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { User } from "src/modules/users/entities/user.entity";
 import { Repository } from "typeorm";
 import * as bcrypt from "bcryptjs"
+import { envs } from "src/config/envs";
 @Injectable()
 export class UsersSeed{
 
@@ -10,13 +11,16 @@ export class UsersSeed{
 
 
     async seed(){
-        const user =await this.usersRepository.findOne({where:{email:"admin@admin.com"}});
-    if(!user){
-        const newUser = new User();
-        newUser.name = "Admin";
-        newUser.email = "admin@admin.com";
-        newUser.password = bcrypt.hashSync("Prueba123!",10);
-    await this.usersRepository.save(newUser);
-    }
+        const adminEmail = envs.SEED_ADMIN_EMAIL;
+        const adminPassword = envs.SEED_ADMIN_PASSWORD;
+
+        const user = await this.usersRepository.findOne({ where: { email: adminEmail } });
+        if (!user) {
+            const newUser = new User();
+            newUser.name = "Admin";
+            newUser.email = adminEmail;
+            newUser.password = bcrypt.hashSync(adminPassword, 10);
+            await this.usersRepository.save(newUser);
+        }
     }
 }

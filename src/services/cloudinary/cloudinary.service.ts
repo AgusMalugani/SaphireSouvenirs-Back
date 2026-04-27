@@ -1,14 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import {v2 as cloudinary,UploadApiOptions} from "cloudinary"
-import * as dotenv from "dotenv"
+import { envs } from 'src/config/envs';
 @Injectable()
 export class CloudinaryService {
     constructor(){
-        dotenv.config({path:".env"});
         cloudinary.config({
-            cloud_name : process.env.CLOUDINARY_CLOUD_NAME,
-            api_key:process.env.CLOUDINARY_CLOUD_API_KEY,
-            api_secret:process.env.CLOUDINARY_CLOUD_API_SECRET
+            cloud_name : envs.CLOUDINARY_CLOUD_NAME,
+            api_key:envs.CLOUDINARY_CLOUD_API_KEY,
+            api_secret:envs.CLOUDINARY_CLOUD_API_SECRET
         })
     }
 

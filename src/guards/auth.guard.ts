@@ -1,6 +1,7 @@
 import { BadRequestException, CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Observable } from 'rxjs';
+import { envs } from 'src/config/envs';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -17,7 +18,7 @@ throw new BadRequestException("Token invalido");
  }
  
  try {
- const payload = this.jwtService.verify(token,{secret:process.env.JWT_SECRET})
+ const payload = this.jwtService.verify(token,{secret:envs.JWT_SECRET})
  request.user = payload;
     return true;
   } catch (error) {

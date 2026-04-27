@@ -14,6 +14,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtModule } from '@nestjs/jwt';
 import { AppController } from './app.controller';
+import { envs } from './config/envs';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { AppController } from './app.controller';
     }),
     JwtModule.register({
           global: true,
-          secret: process.env.JWT_SECRET||"clavesecret",
+          secret: envs.JWT_SECRET,
           signOptions: { expiresIn: '4h' }
         }),
     ProductsModule, 

@@ -7,6 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import * as bcrypt from "bcryptjs"
 import { ResponseUserDto } from '../users/dto/response-use.dto';
+import { envs } from 'src/config/envs';
 
 
 
@@ -55,7 +56,7 @@ const payload = {
   roles:"admin"
 }
 
-const token =  this.jwtService.sign(payload,{secret: process.env.JWT_SECRET,expiresIn:"4h"})
+const token =  this.jwtService.sign(payload,{secret: envs.JWT_SECRET,expiresIn:"4h"})
 const responseUser = new ResponseUserDto(user);
 return {token, user:responseUser};
 }

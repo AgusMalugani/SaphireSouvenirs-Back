@@ -7,7 +7,7 @@ import { Repository } from 'typeorm';
 import { OrderdetailsService } from './../orderdetails/orderdetails.service';
 import * as dayjs from "dayjs";
 import { NodemailerService } from '../nodemailer/nodemailer.service';
-import * as dotenv from "dotenv"
+import { envs } from 'src/config/envs';
 
 @Injectable()
 export class OrdersService {
@@ -102,7 +102,7 @@ async create(createOrderDto: CreateOrderDto) {
                 </tr>
             </tfoot>
         </table>
-        <p>Puedes ver más detalles de tu pedido <a href="${process.env.URL_CLIENT}postShop/${order.id}">aquí</a>.</p>
+        <p>Puedes ver más detalles de tu pedido <a href="${envs.URL_CLIENT}postShop/${order.id}">aquí</a>.</p>
         <p>Gracias por elegir SaphireSouvenirs.</p>
     </body>
     </html>
