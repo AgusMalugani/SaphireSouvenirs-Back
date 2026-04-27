@@ -13,7 +13,7 @@ createAt:string
 endOrder:string
 @Column()
 transactionType:TransactionTypeEnum
-@Column({default:StateEnum.InProcces})
+@Column({default:StateEnum.InProcess})
 state: StateEnum
 @Column()
 address:string

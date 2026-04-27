@@ -14,7 +14,7 @@ export class UsersController {
   }
 
   @Get()
-  //@UseGuards(AuthGuard)
+  @UseGuards(AuthGuard)
   async findAll() {
     const users= await this.usersService.findAll();
     return  {data:users}
