@@ -5,7 +5,7 @@ export class SigninDto{
     @IsNotEmpty()
     email:string
 
-    @IsStrongPassword()
+    //@IsStrongPassword()
     @IsNotEmpty()
     password:string
 }

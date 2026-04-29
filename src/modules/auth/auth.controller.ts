@@ -21,6 +21,8 @@ export class AuthController {
 
   @Post('signin')
   async signin(@Body() credentials: SigninDto) {
+    console.log(credentials);
+    
     const response = await this.authService.signin(credentials);
     return {data:response}
   }
