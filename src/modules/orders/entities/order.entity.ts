@@ -24,7 +24,7 @@ theme:string
 @Column()
 nameClient:string
 @Column()
-nameForCard:string
+personalizationName:string
 @Column()
 numCel:string
 @Column()

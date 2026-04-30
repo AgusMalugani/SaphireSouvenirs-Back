@@ -31,7 +31,7 @@ export class CreateOrderDto {
     address:string;
 
     @ApiProperty({
-        description:"Tema para la tarjeta",
+        description:"Tema o estilo del souvenir",
         example:"Harry Potter"
     })
     @IsNotEmpty()
@@ -51,14 +51,14 @@ export class CreateOrderDto {
     nameClient:string
 
     @ApiProperty({
-        description:"Nombre para la tarjeta",
+        description:"Nombre para el diseño del souvenir",
         example:"Martin"
     })
     @IsNotEmpty()
     @IsString()
     @MinLength(3)
     @MaxLength(100)
-    nameForCard:string
+    personalizationName:string
 
     @ApiProperty({
         description:"Numero celular para comunicarnos",
