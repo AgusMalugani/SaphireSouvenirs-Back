@@ -5,6 +5,7 @@ export const typeOrmConfig: TypeOrmModuleOptions = {
   type: 'postgres',
   url: envs.DATABASE_URL,
   autoLoadEntities: true,
+  dropSchema: true,
   synchronize: true,
   ssl: {
     rejectUnauthorized: false,
