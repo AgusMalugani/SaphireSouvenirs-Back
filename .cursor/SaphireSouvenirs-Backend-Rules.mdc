@@ -1,0 +1,31 @@
+---
+description: 
+alwaysApply: true
+---
+
+## ⚠️ Environment & Config (CRITICAL)
+- **STRICT RULE:** NEVER use `process.env` directly in the codebase.
+- **Access:** Always import the `envs` constant from `src/config/envs.ts`.
+- **Modifications:** If a new environment variable is required, you MUST:
+    1. Update the Zod schema in `src/config/envs.ts`.
+    2. Update `.env.example`.
+    3. Then use it via the `envs` object.
+
+## 🏗️ Architecture & Logic
+- **Pattern:** Modular NestJS. Keep it simple.
+- **Logic Placement:** All business logic MUST reside in `Services`. Do not use "Use Case" or "Domain" layers unless specifically asked.
+- **Entity Safety:** `dropSchema` MUST be `false`. `synchronize` is conditional via `envs` (never `true` in prod/staging). ALWAYS warn the user before modifying an `@Entity` file and obtain explicit approval per constitution before implementing schema changes.
+
+## 🛠️ Tech Stack & Standards
+- **Validation:** Use `class-validator` and `class-transformer` for all DTOs.
+- **Dates:** Use `dayjs` for any date manipulation or validation.
+- **Database:** Use TypeORM with the config located in `src/config/typeOrm.config.ts`.
+- **Consistency:** Ensure strict TypeScript typing. Avoid `any` at all costs.
+
+## 🔒 Security
+- **Guards:** Always evaluate if a new Controller or Route needs `@UseGuards(AuthGuard)`.
+- **Admin Routes:** Sensitive administrative actions must be protected with `@Roles('admin')` and `RolesGuard`.
+- **Hardcodes:** No hardcoded secrets, emails, or credentials allowed (already moved to `envs`).
+
+## 🧹 Clean Code History (Fixed Issues)
+- Legacy typos like `tpeOrm.config.ts` (now `typeOrm.config.ts`) and `InProcces` (now `InProcess`) are FIXED. Do not revert to the old names.
