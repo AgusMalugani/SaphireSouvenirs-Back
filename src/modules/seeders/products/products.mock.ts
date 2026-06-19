@@ -9,15 +9,6 @@ export const products = [
       categories: ["BAUTISMO", "COMUNION", "BABYSHOWER", "SOUVENIRS", "CUMPLEINFANTIL"]
     },
     {
-      id: "2",
-      name: "Estampitas",
-      price: 500,
-      img_url: "http://www.exampleImg.com/estampitas",
-      details: "Estampitas personalizadas para eventos religiosos.",
-      stock: true,
-      categories: ["BAUTISMO", "COMUNION", "BABYSHOWER", "CUMPLE15", "BODA"]
-    },
-    {
       id: "3",
       name: "Certificado Padrinos",
       price: 800,
@@ -71,33 +62,7 @@ export const products = [
       stock: true,
       categories: ["BAUTISMO", "COMUNION", "BABYSHOWER", "CUMPLE15", "BODA"]
     },
-    {
-      id: "9",
-      name: "Etiquetas Escolares",
-      price: 1200,
-      img_url: "http://www.exampleImg.com/etiquetas-escolares",
-      details: "Etiquetas personalizadas para útiles escolares.",
-      stock: true,
-      categories: ["ESCOLARES"]
-    },
-    {
-      id: "10",
-      name: "Valijitas Medianas",
-      price: 3500,
-      img_url: "http://www.exampleImg.com/valijitas-medianas",
-      details: "Valijitas medianas personalizadas, perfectas para souvenirs.",
-      stock: true,
-      categories: ["SOUVENIRS", "CUMPLEINFANTIL"]
-    },
-    {
-        id: "11",
-        name: "Valijitas Chicas",
-        price: 3500,
-        img_url: "http://www.exampleImg.com/valijitas-medianas",
-        details: "Valijitas chicas personalizadas, perfectas para souvenirs.",
-        stock: true,
-        categories: ["SOUVENIRS", "CUMPLEINFANTIL"]
-      }, {
+     {
         id: "12",
         name: "Llaveros Gamuza + 3 Dijes",
         price: 1500,

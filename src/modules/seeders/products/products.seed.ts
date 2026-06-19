@@ -43,7 +43,7 @@ async findCategoriesByName(categories:string[]){
             throw new BadRequestException(`La categoria ${cat} ingresada no se encuentra `);
         }
     }
-    return categorias;
+    return categorias.filter((categoria) => categories.includes(categoria.name));
 }
 
 
