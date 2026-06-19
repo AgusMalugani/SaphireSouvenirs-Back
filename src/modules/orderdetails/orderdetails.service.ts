@@ -3,58 +3,68 @@ import { CreateOrderdetailDto } from './dto/create-orderdetail.dto';
 import { UpdateOrderdetailDto } from './dto/update-orderdetail.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Orderdetail } from './entities/orderdetail.entity';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { Order } from '../orders/entities/order.entity';
 import { ProductsService } from '../products/products.service';
 
 @Injectable()
 export class OrderdetailsService {
-constructor(@InjectRepository(Orderdetail) private readonly orderDetailRepository : Repository<Orderdetail>, 
-private readonly productService : ProductsService ){}
+  constructor(
+    @InjectRepository(Orderdetail)
+    private readonly orderDetailRepository: Repository<Orderdetail>,
+    private readonly productService: ProductsService,
+  ) {}
 
-  async create(createOrderdetailDto: CreateOrderdetailDto,order:Order) {
-   
-    console.log(createOrderdetailDto);
-    
-    const{productId,cuantity}=createOrderdetailDto
+  async create(
+    createOrderdetailDto: CreateOrderdetailDto,
+    order: Order,
+    entityManager?: EntityManager,
+  ) {
+    const { productId, cuantity } = createOrderdetailDto;
     const product = await this.productService.findOneById(productId);
-    if(!product){
-      throw new BadRequestException("No existe ese producto");
+    if (!product) {
+      throw new BadRequestException('No existe ese producto');
     }
-    
 
-      if(product.stock === false){
-        throw new BadRequestException("El producto, no esta en stock"); //esto no deberia pasar.
-      }
-      const subTotal= product.price * cuantity
+    if (product.stock === false) {
+      throw new BadRequestException('El producto, no esta en stock');
+    }
+    const subTotal = product.price * cuantity;
 
-const orderDetail = this.orderDetailRepository.create({product,cuantity,subTotal,order});
-console.log(orderDetail);
-return this.orderDetailRepository.save(orderDetail);  
-}
+    const orderDetailRepository = entityManager
+      ? entityManager.getRepository(Orderdetail)
+      : this.orderDetailRepository;
 
-
+    const orderDetail = orderDetailRepository.create({
+      product,
+      cuantity,
+      subTotal,
+      order,
+    });
+    return orderDetailRepository.save(orderDetail);
+  }
 
   async findAll() {
-    const  orderDetails = await this.orderDetailRepository.find()
-    if(!orderDetails){
-      throw new BadRequestException("No hay detalles de ordenes");
+    const orderDetails = await this.orderDetailRepository.find();
+    if (!orderDetails) {
+      throw new BadRequestException('No hay detalles de ordenes');
     }
     return orderDetails;
   }
 
- async findOneById(id: string) {
-  const orderDetail= await this.orderDetailRepository.findOne({where:{id}})
-  if(!orderDetail){
-    throw new BadRequestException("No hay detalles de orden con esa id");
+  async findOneById(id: string) {
+    const orderDetail = await this.orderDetailRepository.findOne({
+      where: { id },
+    });
+    if (!orderDetail) {
+      throw new BadRequestException('No hay detalles de orden con esa id');
+    }
+    return orderDetail;
   }
-  return orderDetail;
-  }
-
 
   async update(id: string, updateOrderdetailDto: UpdateOrderdetailDto) {
     const orderDetail = await this.findOneById(id);
-    Object.assign(orderDetail,updateOrderdetailDto);
+    Object.assign(orderDetail, updateOrderdetailDto);
     return this.orderDetailRepository.save(orderDetail);
   }
 

@@ -1,3 +1,3 @@
 {
-  "feature_directory": "specs/001-db-config-hardening"
+  "feature_directory": "specs/002-order-email-decouple"
 }

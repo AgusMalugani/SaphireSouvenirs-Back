@@ -1,84 +1,151 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { OrderdetailsService } from './../orderdetails/orderdetails.service';
-import * as dayjs from "dayjs";
-import { NodemailerService } from '../nodemailer/nodemailer.service';
+import * as dayjs from 'dayjs';
 import { envs } from 'src/config/envs';
+import { EMAIL_SENDER } from '../email/email-sender.token';
+import { EmailSender } from '../email/email-sender.interface';
+import { Orderdetail } from '../orderdetails/entities/orderdetail.entity';
+
+interface BuildOrderConfirmationHtmlInput {
+  nameClient: string;
+  order: Order;
+  orderDetails: Orderdetail[];
+  total: number;
+}
+
+interface PersistedOrderResult {
+  order: Order;
+  orderDetails: Orderdetail[];
+  total: number;
+}
 
 @Injectable()
 export class OrdersService {
-constructor(@InjectRepository(Order)private readonly orderRepository : Repository<Order>,
-private readonly orderDetailsService:OrderdetailsService,
-private readonly nodemailerService : NodemailerService,
-){}
+  private readonly logger = new Logger(OrdersService.name);
 
-async create(createOrderDto: CreateOrderDto) {
-  const {
-    endOrder,
-    nameClient,
-    personalizationName,
-    num2Cel,
-    numCel,
-    theme,
-    transactionType,
-    products,
-    address,
-    email,
-  } = createOrderDto;
+  constructor(
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
+    private readonly orderDetailsService: OrderdetailsService,
+    @Inject(EMAIL_SENDER)
+    private readonly emailSender: EmailSender,
+    private readonly dataSource: DataSource,
+  ) {}
 
-  const createAt = dayjs().format("YYYY-MM-DD"); // Fecha del pedido
+  async create(createOrderDto: CreateOrderDto) {
+    const {
+      endOrder,
+      nameClient,
+      personalizationName,
+      num2Cel,
+      numCel,
+      theme,
+      transactionType,
+      products,
+      address,
+      email,
+    } = createOrderDto;
 
-  // Crear la orden
-  const orderSchema = this.orderRepository.create({
-    createAt,
-    endOrder,
-    transactionType,
-    nameClient,
-    personalizationName,
-    theme,
-    num2Cel,
-    numCel,
-    address,
-    email,
-    totalPrice: 0,
-  });
+    const createAt = dayjs().format('YYYY-MM-DD');
 
-  const order = await this.orderRepository.save(orderSchema); // Guardar la orden para obtener la ID
+    const { order, orderDetails, total } =
+      await this.dataSource.transaction<PersistedOrderResult>(
+        async (transactionManager) => {
+          const orderRepository = transactionManager.getRepository(Order);
 
-  try {
-    // Crear los detalles de la orden
-    const orderDetails = await Promise.all(
-      products.map(async (prod) => await this.orderDetailsService.create(prod, order))
-    );
+          const orderSchema = orderRepository.create({
+            createAt,
+            endOrder,
+            transactionType,
+            nameClient,
+            personalizationName,
+            theme,
+            num2Cel,
+            numCel,
+            address,
+            email,
+            totalPrice: 0,
+          });
 
-    // Calcular el total
-    let total = 0;
+          const savedOrder = await orderRepository.save(orderSchema);
+
+          const orderDetailsList = await Promise.all(
+            products.map(async (productItem) =>
+              this.orderDetailsService.create(
+                productItem,
+                savedOrder,
+                transactionManager,
+              ),
+            ),
+          );
+
+          let orderTotal = 0;
+          for (const orderDetail of orderDetailsList) {
+            orderTotal += orderDetail.subTotal;
+          }
+
+          savedOrder.orderDetails = orderDetailsList;
+          savedOrder.totalPrice = orderTotal;
+
+          const persistedOrder = await orderRepository.save(savedOrder);
+
+          return {
+            order: persistedOrder,
+            orderDetails: orderDetailsList,
+            total: orderTotal,
+          };
+        },
+      );
+
+    const emailHtml = this.buildOrderConfirmationHtml({
+      nameClient,
+      order,
+      orderDetails,
+      total,
+    });
+
+    void this.emailSender
+      .sendOrderConfirmation({
+        to: email,
+        cc: envs.NODEMAILER_CC,
+        subject: 'Confirmación de Pedido ✔',
+        html: emailHtml,
+        orderId: order.id,
+      })
+      .catch((error: unknown) => {
+        this.logger.warn(
+          `Order confirmation email failed for ${order.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+
+    return order;
+  }
+
+  private buildOrderConfirmationHtml(
+    input: BuildOrderConfirmationHtmlInput,
+  ): string {
+    const { nameClient, order, orderDetails, total } = input;
+
     const orderItemsHtml = orderDetails
-      .map((orderDet) => {
-        total += orderDet.subTotal;
+      .map((orderDetail) => {
         return `
           <tr>
-            <td style="padding:12px 0;font-size:14px;color:#44403c;border-bottom:1px solid #f5f0ed;">${orderDet.product.name}</td>
-            <td style="padding:12px 0;font-size:14px;color:#78716c;text-align:center;border-bottom:1px solid #f5f0ed;">${orderDet.cuantity}</td>
-            <td style="padding:12px 0;font-size:14px;color:#78716c;text-align:right;border-bottom:1px solid #f5f0ed;">$${orderDet.product.price.toFixed(2)}</td>
-            <td style="padding:12px 0;font-size:14px;font-weight:600;color:#44403c;text-align:right;border-bottom:1px solid #f5f0ed;">$${orderDet.subTotal.toFixed(2)}</td>
+            <td style="padding:12px 0;font-size:14px;color:#44403c;border-bottom:1px solid #f5f0ed;">${orderDetail.product.name}</td>
+            <td style="padding:12px 0;font-size:14px;color:#78716c;text-align:center;border-bottom:1px solid #f5f0ed;">${orderDetail.cuantity}</td>
+            <td style="padding:12px 0;font-size:14px;color:#78716c;text-align:right;border-bottom:1px solid #f5f0ed;">$${orderDetail.product.price.toFixed(2)}</td>
+            <td style="padding:12px 0;font-size:14px;font-weight:600;color:#44403c;text-align:right;border-bottom:1px solid #f5f0ed;">$${orderDetail.subTotal.toFixed(2)}</td>
           </tr>
         `;
       })
-      .join("");
+      .join('');
 
-    order.orderDetails = orderDetails;
-    order.totalPrice = total;
-
-    // Actualizar la orden con el total y los detalles
-    await this.orderRepository.save(order);
-
-    // Enviar correo con los detalles de la orden
-    const emailHtml = `
+    return `
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -94,7 +161,6 @@ async create(createOrderDto: CreateOrderDto) {
 
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;border:1px solid #f0ece8;overflow:hidden;">
 
-          <!-- HEADER -->
           <tr>
             <td style="background:linear-gradient(135deg,#fb7185,#f43f5e);padding:40px 32px;text-align:center;">
               <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:28px;color:#ffffff;font-weight:700;letter-spacing:2px;">
@@ -106,7 +172,6 @@ async create(createOrderDto: CreateOrderDto) {
             </td>
           </tr>
 
-          <!-- SALUDO -->
           <tr>
             <td style="padding:36px 40px 0;">
               <h2 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:22px;color:#fb7185;font-weight:600;">
@@ -118,7 +183,6 @@ async create(createOrderDto: CreateOrderDto) {
             </td>
           </tr>
 
-          <!-- TABLA DE PRODUCTOS -->
           <tr>
             <td style="padding:28px 40px 0;">
               <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
@@ -143,7 +207,6 @@ async create(createOrderDto: CreateOrderDto) {
             </td>
           </tr>
 
-          <!-- BOTÓN CTA -->
           <tr>
             <td style="padding:40px;text-align:center;">
               <a href="${envs.URL_CLIENT}/postShop/${order.id}"
@@ -153,14 +216,12 @@ async create(createOrderDto: CreateOrderDto) {
             </td>
           </tr>
 
-          <!-- DIVISOR -->
           <tr>
             <td style="padding:0 40px;">
               <div style="height:1px;background-color:#f5f0ed;"></div>
             </td>
           </tr>
 
-          <!-- FOOTER -->
           <tr>
             <td style="padding:28px 40px 36px;text-align:center;">
               <p style="margin:0 0 16px;font-size:13px;color:#a8a29e;letter-spacing:0.5px;">
@@ -191,38 +252,32 @@ async create(createOrderDto: CreateOrderDto) {
 </body>
 </html>
     `;
-
-    await this.nodemailerService.sendEmail(email, emailHtml);
-
-    return order;
-  } catch (error) {
-    // Si ocurre un error, elimina la orden creada
-    await this.orderRepository.delete(order.id);
-    throw error; // Re-lanza el error para que sea manejado por el controlador
   }
-}
 
-
-
-  async findAll() : Promise<Order[]> {
-    const orders = await this.orderRepository.find({relations:{orderDetails:true}});
-    if(!orders){
-      throw new BadRequestException("No hay ordenes");
+  async findAll(): Promise<Order[]> {
+    const orders = await this.orderRepository.find({
+      relations: { orderDetails: true },
+    });
+    if (!orders) {
+      throw new BadRequestException('No hay ordenes');
     }
     return orders;
   }
 
- async findOneById(id: string) {
-  const order = await this.orderRepository.findOne({where:{id},relations:{orderDetails:{product:true}}})
-  if(!order){
-    throw new BadRequestException("No hay orden con esa id");
-  }
-  return order;
+  async findOneById(id: string) {
+    const order = await this.orderRepository.findOne({
+      where: { id },
+      relations: { orderDetails: { product: true } },
+    });
+    if (!order) {
+      throw new BadRequestException('No hay orden con esa id');
+    }
+    return order;
   }
 
   async update(id: string, updateOrderDto: UpdateOrderDto) {
     const order = await this.findOneById(id);
-    Object.assign(order,updateOrderDto);
+    Object.assign(order, updateOrderDto);
     return this.orderRepository.save(order);
   }
 
