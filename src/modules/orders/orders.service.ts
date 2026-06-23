@@ -1,15 +1,31 @@
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { UpdateOrderDto } from './dto/update-order.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
-import { DataSource, Repository } from 'typeorm';
+import { Brackets, DataSource, EntityManager, Repository } from 'typeorm';
 import { OrderdetailsService } from './../orderdetails/orderdetails.service';
 import * as dayjs from 'dayjs';
 import { envs } from 'src/config/envs';
 import { EMAIL_SENDER } from '../email/email-sender.token';
 import { EmailSender } from '../email/email-sender.interface';
 import { Orderdetail } from '../orderdetails/entities/orderdetail.entity';
+import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
+import { UpdateOrderPartialDto } from './dto/update-order-partial.dto';
+import { OrderTimelineEvent } from './entities/order-timeline-event.entity';
+import { OrderAdminNote } from './entities/order-admin-note.entity';
+import { OrderTimelineEventType } from './enums/order-timeline-event-type.enum';
+import { AuthenticatedAdminUser } from './interfaces/authenticated-admin-user.interface';
+import { User } from '../users/entities/user.entity';
+import {
+  SerializedAdminNote,
+  SerializedTimelineEvent,
+} from './interfaces/order-admin-responses.interface';
 
 interface BuildOrderConfirmationHtmlInput {
   nameClient: string;
@@ -24,6 +40,26 @@ interface PersistedOrderResult {
   total: number;
 }
 
+export interface OrderListMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PaginatedOrdersResponse {
+  data: Order[];
+  meta: OrderListMeta;
+}
+
+interface RecordTimelineEventInput {
+  order: Order;
+  type: OrderTimelineEventType;
+  payload: Record<string, unknown>;
+  createdByUserId: string | null;
+  transactionManager: EntityManager;
+}
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -31,6 +67,10 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    @InjectRepository(OrderTimelineEvent)
+    private readonly timelineEventRepository: Repository<OrderTimelineEvent>,
+    @InjectRepository(OrderAdminNote)
+    private readonly adminNoteRepository: Repository<OrderAdminNote>,
     private readonly orderDetailsService: OrderdetailsService,
     @Inject(EMAIL_SENDER)
     private readonly emailSender: EmailSender,
@@ -93,6 +133,14 @@ export class OrdersService {
           savedOrder.totalPrice = orderTotal;
 
           const persistedOrder = await orderRepository.save(savedOrder);
+
+          await this.recordTimelineEvent({
+            order: persistedOrder,
+            type: OrderTimelineEventType.Created,
+            payload: {},
+            createdByUserId: null,
+            transactionManager,
+          });
 
           return {
             order: persistedOrder,
@@ -209,7 +257,7 @@ export class OrdersService {
 
           <tr>
             <td style="padding:40px;text-align:center;">
-              <a href="${envs.URL_CLIENT}/postShop/${order.id}"
+              <a href="${envs.URL_CLIENT}/post-shop/${order.id}"
                  style="display:inline-block;padding:15px 44px;background:linear-gradient(135deg,#fb7185,#f43f5e);color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:50px;letter-spacing:0.5px;">
                 Ver detalle de mi pedido →
               </a>
@@ -254,14 +302,65 @@ export class OrdersService {
     `;
   }
 
-  async findAll(): Promise<Order[]> {
-    const orders = await this.orderRepository.find({
-      relations: { orderDetails: true },
-    });
-    if (!orders) {
-      throw new BadRequestException('No hay ordenes');
+  async findAllPaginated(
+    query: ListOrdersQueryDto,
+  ): Promise<PaginatedOrdersResponse> {
+    const { state, transactionType, q, page, limit, sort, order } = query;
+    const sortDirection = order.toUpperCase() as 'ASC' | 'DESC';
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.orderDetails', 'orderDetails')
+      .leftJoinAndSelect('orderDetails.product', 'product');
+
+    if (state) {
+      queryBuilder.andWhere('order.state = :state', { state });
     }
-    return orders;
+
+    if (transactionType) {
+      queryBuilder.andWhere('order.transactionType = :transactionType', {
+        transactionType,
+      });
+    }
+
+    const trimmedSearch = q?.trim();
+    if (trimmedSearch) {
+      const searchPattern = `%${trimmedSearch}%`;
+      queryBuilder.andWhere(
+        new Brackets((searchBracket) => {
+          searchBracket
+            .where('order.nameClient ILIKE :searchPattern', { searchPattern })
+            .orWhere('order.email ILIKE :searchPattern', { searchPattern })
+            .orWhere('order.numCel ILIKE :searchPattern', { searchPattern })
+            .orWhere('order.num2Cel ILIKE :searchPattern', { searchPattern })
+            .orWhere('order.theme ILIKE :searchPattern', { searchPattern })
+            .orWhere('order.address ILIKE :searchPattern', { searchPattern });
+        }),
+      );
+    }
+
+    if (sort !== 'createAt') {
+      throw new BadRequestException('sort inválido: solo createAt está permitido');
+    }
+
+    queryBuilder
+      .orderBy('order.createAt', sortDirection)
+      .skip(skip)
+      .take(limit);
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    };
   }
 
   async findOneById(id: string) {
@@ -270,15 +369,193 @@ export class OrdersService {
       relations: { orderDetails: { product: true } },
     });
     if (!order) {
-      throw new BadRequestException('No hay orden con esa id');
+      throw new NotFoundException('No hay orden con esa id');
     }
     return order;
   }
 
-  async update(id: string, updateOrderDto: UpdateOrderDto) {
-    const order = await this.findOneById(id);
-    Object.assign(order, updateOrderDto);
-    return this.orderRepository.save(order);
+  async findAdminById(orderId: string) {
+    const order = await this.findOneById(orderId);
+
+    const timelineEvents = await this.timelineEventRepository.find({
+      where: { order: { id: orderId } },
+      relations: { createdByUser: true },
+      order: { createdAt: 'ASC' },
+    });
+
+    const adminNotes = await this.adminNoteRepository.find({
+      where: { order: { id: orderId } },
+      relations: { createdByUser: true },
+      order: { createdAt: 'ASC' },
+    });
+
+    return {
+      ...order,
+      timeline: timelineEvents.map((event) => this.mapTimelineEvent(event)),
+      notes: adminNotes.map((note) => this.mapAdminNote(note)),
+    };
+  }
+
+  async updatePartial(
+    orderId: string,
+    updateOrderPartialDto: UpdateOrderPartialDto,
+    adminUser: AuthenticatedAdminUser,
+  ) {
+    const order = await this.findOneById(orderId);
+    const previousState = order.state;
+    const previousTransactionType = order.transactionType;
+    const previousAddress = order.address;
+
+    const stateWillChange =
+      updateOrderPartialDto.state !== undefined &&
+      updateOrderPartialDto.state !== order.state;
+    const transactionTypeWillChange =
+      updateOrderPartialDto.transactionType !== undefined &&
+      updateOrderPartialDto.transactionType !== order.transactionType;
+    const addressWillChange =
+      updateOrderPartialDto.address !== undefined &&
+      updateOrderPartialDto.address !== order.address;
+
+    if (!stateWillChange && !transactionTypeWillChange && !addressWillChange) {
+      return order;
+    }
+
+    if (stateWillChange) {
+      order.state = updateOrderPartialDto.state!;
+    }
+
+    if (transactionTypeWillChange) {
+      order.transactionType = updateOrderPartialDto.transactionType!;
+    }
+
+    if (addressWillChange) {
+      order.address = updateOrderPartialDto.address!;
+    }
+
+    return this.dataSource.transaction(async (transactionManager) => {
+      const orderRepository = transactionManager.getRepository(Order);
+      const savedOrder = await orderRepository.save(order);
+
+      if (stateWillChange) {
+        await this.recordTimelineEvent({
+          order: savedOrder,
+          type: OrderTimelineEventType.StateChanged,
+          payload: {
+            from: previousState,
+            to: updateOrderPartialDto.state,
+          },
+          createdByUserId: adminUser.id,
+          transactionManager,
+        });
+      }
+
+      if (transactionTypeWillChange || addressWillChange) {
+        await this.recordTimelineEvent({
+          order: savedOrder,
+          type: OrderTimelineEventType.TransactionChanged,
+          payload: {
+            ...(transactionTypeWillChange && {
+              fromTransactionType: previousTransactionType,
+              toTransactionType: updateOrderPartialDto.transactionType,
+            }),
+            ...(addressWillChange && {
+              fromAddress: previousAddress,
+              toAddress: updateOrderPartialDto.address,
+            }),
+          },
+          createdByUserId: adminUser.id,
+          transactionManager,
+        });
+      }
+
+      return savedOrder;
+    });
+  }
+
+  async addAdminNote(
+    orderId: string,
+    noteText: string,
+    adminUser: AuthenticatedAdminUser,
+  ): Promise<{ note: SerializedAdminNote }> {
+    const order = await this.findOneById(orderId);
+
+    return this.dataSource.transaction(async (transactionManager) => {
+      const adminNoteRepository =
+        transactionManager.getRepository(OrderAdminNote);
+
+      const adminNote = adminNoteRepository.create({
+        order,
+        text: noteText,
+        createdByUser: { id: adminUser.id } as User,
+      });
+
+      const savedNote = await adminNoteRepository.save(adminNote);
+      savedNote.createdByUser = {
+        id: adminUser.id,
+        email: adminUser.email,
+      } as User;
+
+      await this.recordTimelineEvent({
+        order,
+        type: OrderTimelineEventType.AdminNoteAdded,
+        payload: { note: noteText },
+        createdByUserId: adminUser.id,
+        transactionManager,
+      });
+
+      return { note: this.mapAdminNote(savedNote) };
+    });
+  }
+
+  private async recordTimelineEvent(
+    input: RecordTimelineEventInput,
+  ): Promise<OrderTimelineEvent> {
+    const timelineRepository = input.transactionManager.getRepository(
+      OrderTimelineEvent,
+    );
+
+    const timelineEvent = timelineRepository.create({
+      order: input.order,
+      type: input.type,
+      payload: input.payload,
+      createdByUser: input.createdByUserId
+        ? ({ id: input.createdByUserId } as User)
+        : null,
+    });
+
+    return timelineRepository.save(timelineEvent);
+  }
+
+  private mapTimelineEvent(
+    timelineEvent: OrderTimelineEvent,
+  ): SerializedTimelineEvent {
+    const serializedEvent: SerializedTimelineEvent = {
+      id: timelineEvent.id,
+      type: timelineEvent.type,
+      payload: timelineEvent.payload,
+      createdAt: timelineEvent.createdAt.toISOString(),
+    };
+
+    if (timelineEvent.createdByUser) {
+      serializedEvent.createdBy = {
+        id: timelineEvent.createdByUser.id,
+        email: timelineEvent.createdByUser.email,
+      };
+    }
+
+    return serializedEvent;
+  }
+
+  private mapAdminNote(adminNote: OrderAdminNote): SerializedAdminNote {
+    return {
+      id: adminNote.id,
+      text: adminNote.text,
+      createdAt: adminNote.createdAt.toISOString(),
+      createdBy: {
+        id: adminNote.createdByUser.id,
+        email: adminNote.createdByUser.email,
+      },
+    };
   }
 
   remove(id: number) {

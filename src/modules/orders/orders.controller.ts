@@ -1,24 +1,76 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  Req,
+  UseGuards,
+  ValidationPipe,
+} from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { UpdateOrderDto } from './dto/update-order.dto';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
+import { UpdateOrderPartialDto } from './dto/update-order-partial.dto';
+import { CreateOrderNoteDto } from './dto/create-order-note.dto';
+import { AuthGuard } from 'src/guards/auth.guard';
+import { RolesGuard } from 'src/guards/roles.guard';
+import { Roles } from 'src/decorators/roles.decorator';
 
-@ApiTags("Orders")
+interface AuthenticatedRequest {
+  user: {
+    id: string;
+    email: string;
+  };
+}
+
+@ApiTags('Orders')
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
   async create(@Body() createOrderDto: CreateOrderDto) {
-    //console.log(createOrderDto);
-    
     return await this.ordersService.create(createOrderDto);
   }
 
   @Get()
-  async findAll() {
-    return await this.ordersService.findAll();
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  async findAll(@Query() query: ListOrdersQueryDto) {
+    return await this.ordersService.findAllPaginated(query);
+  }
+
+  @Get(':id/admin')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  async findAdminById(@Param('id') id: string) {
+    return await this.ordersService.findAdminById(id);
+  }
+
+  @Post(':id/notes')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  async addAdminNote(
+    @Param('id') id: string,
+    @Body() createOrderNoteDto: CreateOrderNoteDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return await this.ordersService.addAdminNote(
+      id,
+      createOrderNoteDto.note,
+      {
+        id: request.user.id,
+        email: request.user.email,
+      },
+    );
   }
 
   @Get(':id')
@@ -27,8 +79,24 @@ export class OrdersController {
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
-    return await this.ordersService.update(id, updateOrderDto);
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  async updatePartial(
+    @Param('id') id: string,
+    @Body(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
+    updateOrderPartialDto: UpdateOrderPartialDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return await this.ordersService.updatePartial(id, updateOrderPartialDto, {
+      id: request.user.id,
+      email: request.user.email,
+    });
   }
 
   @Delete(':id')

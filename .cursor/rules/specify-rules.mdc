@@ -5,5 +5,5 @@ alwaysApply: true
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-`specs/003-email-provider-brevo/plan.md` (quickstart: `specs/003-email-provider-brevo/quickstart.md`).
+`specs/004-orders-api-v2/plan.md` (quickstart: `specs/004-orders-api-v2/quickstart.md`).
 <!-- SPECKIT END -->
