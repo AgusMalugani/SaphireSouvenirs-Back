@@ -1,6 +1,6 @@
 jest.mock('src/config/envs', () => ({
   envs: {
-    NODEMAILER_CC: 'cc@example.com',
+    EMAIL_CC: 'cc@example.com',
     URL_CLIENT: 'http://localhost:5173',
   },
 }));

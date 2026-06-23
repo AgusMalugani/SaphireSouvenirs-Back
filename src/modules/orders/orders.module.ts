@@ -6,14 +6,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Orderdetail } from '../orderdetails/entities/orderdetail.entity';
 import { Product } from '../products/entities/product.entity';
 import { Category } from '../categories/entities/category.entity';
-import { NodemailerModule } from '../nodemailer/nodemailer.module';
+import { EmailModule } from '../email/email.module';
 import { OrderdetailsModule } from '../orderdetails/orderdetails.module';
 import { ValidateEndOrderMiddleware } from 'src/middlewares/validate-end-order/validate-end-order.middleware';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, Orderdetail, Product, Category]),
-    NodemailerModule,
+    EmailModule,
     OrderdetailsModule,
   ],
   controllers: [OrdersController],

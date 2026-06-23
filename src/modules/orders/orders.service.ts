@@ -112,7 +112,7 @@ export class OrdersService {
     void this.emailSender
       .sendOrderConfirmation({
         to: email,
-        cc: envs.NODEMAILER_CC,
+        cc: envs.EMAIL_CC,
         subject: 'Confirmación de Pedido ✔',
         html: emailHtml,
         orderId: order.id,

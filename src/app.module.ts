@@ -7,7 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { typeOrmConfig } from './config/typeOrm.config';
 import { ConfigModule } from '@nestjs/config';
 import { SeederModule } from './modules/seeders/seeder.module';
-import { NodemailerModule } from './modules/nodemailer/nodemailer.module';
+import { EmailModule } from './modules/email/email.module';
 import { CloudinaryService } from './services/cloudinary/cloudinary.service'; 
 import { FileUploadModule } from './modules/file-upload/file-upload.module';
 import { UsersModule } from './modules/users/users.module';
@@ -33,7 +33,7 @@ import { envs } from './config/envs';
      OrderdetailsModule,
       CategoriesModule,
       SeederModule,
-      NodemailerModule,
+      EmailModule,
       FileUploadModule,
       UsersModule,
       AuthModule],
