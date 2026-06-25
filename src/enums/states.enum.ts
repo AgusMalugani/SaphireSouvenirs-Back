@@ -1,6 +1,6 @@
 export enum StateEnum{
   PartialPayment = "partialPayment",
   Paid="paid",
-  InProcess="inProcess"
-  
+  InProcess="inProcess",
+  Cancelled = "cancelled",
 }

@@ -15,7 +15,7 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
-import { UpdateOrderPartialDto } from './dto/update-order-partial.dto';
+import { UpdateOrderAdminDto } from './dto/update-order-admin.dto';
 import { CreateOrderNoteDto } from './dto/create-order-note.dto';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { RolesGuard } from 'src/guards/roles.guard';
@@ -82,7 +82,7 @@ export class OrdersController {
   @UseGuards(AuthGuard, RolesGuard)
   @Roles('admin')
   @ApiBearerAuth()
-  async updatePartial(
+  async updateOrder(
     @Param('id') id: string,
     @Body(
       new ValidationPipe({
@@ -90,10 +90,10 @@ export class OrdersController {
         forbidNonWhitelisted: true,
       }),
     )
-    updateOrderPartialDto: UpdateOrderPartialDto,
+    updateOrderAdminDto: UpdateOrderAdminDto,
     @Req() request: AuthenticatedRequest,
   ) {
-    return await this.ordersService.updatePartial(id, updateOrderPartialDto, {
+    return await this.ordersService.updateOrder(id, updateOrderAdminDto, {
       id: request.user.id,
       email: request.user.email,
     });

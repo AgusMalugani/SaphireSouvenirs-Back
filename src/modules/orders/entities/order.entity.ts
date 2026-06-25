@@ -17,6 +17,8 @@ transactionType:TransactionTypeEnum
 state: StateEnum
 @Column()
 address:string
+@Column({ type: 'int', default: 0 })
+depositAmount: number;
 @Column()
 totalPrice:number
 @Column()

@@ -20,7 +20,7 @@ import { TransactionTypeEnum } from 'src/enums/transactionType.enum';
 import { StateEnum } from 'src/enums/states.enum';
 import { Orderdetail } from '../orderdetails/entities/orderdetail.entity';
 import { OrderTimelineEventType } from './enums/order-timeline-event-type.enum';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 
 describe('OrdersService', () => {
   let ordersService: OrdersService;
@@ -38,9 +38,26 @@ describe('OrdersService', () => {
   let timelineEventRepository: jest.Mocked<
     Pick<Repository<OrderTimelineEvent>, 'find' | 'create' | 'save'>
   >;
+  let transactionOrderRepository: {
+    create: jest.Mock;
+    save: jest.Mock;
+    findOne: jest.Mock;
+  };
+  let transactionTimelineRepository: {
+    create: jest.Mock;
+    save: jest.Mock;
+  };
   let adminNoteRepository: jest.Mocked<
     Pick<Repository<OrderAdminNote>, 'find' | 'create' | 'save'>
   >;
+
+  const configureReloadedOrder = (orderOverrides: Partial<Order> = {}) => {
+    transactionOrderRepository.findOne.mockResolvedValue({
+      ...mockOrder,
+      ...orderOverrides,
+      orderDetails: orderOverrides.orderDetails ?? [mockOrderDetail],
+    });
+  };
 
   const createOrderDto: CreateOrderDto = {
     endOrder: '2026-07-01',
@@ -74,6 +91,7 @@ describe('OrdersService', () => {
     transactionType: TransactionTypeEnum.Withdraw,
     state: StateEnum.InProcess,
     address: 'ituzaingo 1117',
+    depositAmount: 0,
     totalPrice: 1500,
     theme: 'test theme',
     nameClient: 'Malugani',
@@ -95,7 +113,7 @@ describe('OrdersService', () => {
       create: jest.fn().mockResolvedValue(mockOrderDetail),
     };
 
-    const transactionOrderRepository = {
+    transactionOrderRepository = {
       create: jest.fn((orderData: Partial<Order>) => ({
         id: 'order-id',
         ...orderData,
@@ -106,9 +124,19 @@ describe('OrdersService', () => {
           ...order,
           id: order.id ?? 'order-id',
         })),
+      findOne: jest.fn().mockImplementation(async () => ({
+        ...mockOrder,
+        depositAmount: 750,
+        state: StateEnum.PartialPayment,
+        orderDetails: [mockOrderDetail],
+      })),
     };
 
-    const transactionTimelineRepository = {
+    const transactionOrderDetailRepository = {
+      delete: jest.fn().mockResolvedValue(undefined),
+    };
+
+    transactionTimelineRepository = {
       create: jest.fn((eventData: Partial<OrderTimelineEvent>) => eventData),
       save: jest
         .fn()
@@ -142,6 +170,9 @@ describe('OrdersService', () => {
             }
             if (entity === OrderAdminNote) {
               return transactionAdminNoteRepository;
+            }
+            if (entity === Orderdetail) {
+              return transactionOrderDetailRepository;
             }
             throw new Error(`Unexpected entity: ${String(entity)}`);
           }),
@@ -278,6 +309,11 @@ describe('OrdersService', () => {
     });
 
     expect(result.data).toHaveLength(1);
+    expect(result.data[0].remainingBalance).toBe(1500);
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'order.state != :cancelledState',
+      { cancelledState: StateEnum.Cancelled },
+    );
     expect(result.meta).toEqual({
       total: 1,
       page: 1,
@@ -286,18 +322,262 @@ describe('OrdersService', () => {
     });
   });
 
-  it('records state_changed timeline event on partial update', async () => {
-    orderRepository.findOne.mockResolvedValue({ ...mockOrder });
-    orderRepository.save.mockImplementation(async (order) => order as Order);
+  it('sets paid state when deposit equals total', async () => {
+    orderRepository.findOne.mockResolvedValue({ ...mockOrder, depositAmount: 0 });
+    configureReloadedOrder({
+      depositAmount: 1500,
+      state: StateEnum.Paid,
+      totalPrice: 1500,
+    });
 
-    const updatedOrder = await ordersService.updatePartial(
+    const updatedOrder = await ordersService.updateOrder(
       'order-id',
-      { state: StateEnum.Paid },
+      { depositAmount: 1500 },
       adminUser,
     );
 
     expect(updatedOrder.state).toBe(StateEnum.Paid);
+    expect(updatedOrder.remainingBalance).toBe(0);
+  });
+
+  it('rejects deposit greater than total', async () => {
+    orderRepository.findOne.mockResolvedValue({ ...mockOrder, depositAmount: 0 });
+
+    await expect(
+      ordersService.updateOrder(
+        'order-id',
+        { depositAmount: 2000 },
+        adminUser,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('keeps partial payment when products increase total', async () => {
+    const higherSubtotalDetail = { ...mockOrderDetail, subTotal: 3000 };
+    orderDetailsService.create.mockResolvedValue(higherSubtotalDetail);
+    orderRepository.findOne.mockResolvedValue({
+      ...mockOrder,
+      depositAmount: 750,
+      state: StateEnum.PartialPayment,
+    });
+    configureReloadedOrder({
+      depositAmount: 750,
+      totalPrice: 3000,
+      state: StateEnum.PartialPayment,
+      orderDetails: [higherSubtotalDetail],
+    });
+
+    const updatedOrder = await ordersService.updateOrder(
+      'order-id',
+      { products: [{ productId: 'product-id', cuantity: 2 }] },
+      adminUser,
+    );
+
+    expect(updatedOrder.totalPrice).toBe(3000);
+    expect(updatedOrder.state).toBe(StateEnum.PartialPayment);
+    expect(updatedOrder.remainingBalance).toBe(2250);
+  });
+
+  it('marks order paid when products lower total below deposit', async () => {
+    const lowerSubtotalDetail = { ...mockOrderDetail, subTotal: 800 };
+    orderDetailsService.create.mockResolvedValue(lowerSubtotalDetail);
+    orderRepository.findOne.mockResolvedValue({
+      ...mockOrder,
+      depositAmount: 800,
+      state: StateEnum.PartialPayment,
+      totalPrice: 1500,
+    });
+    configureReloadedOrder({
+      depositAmount: 800,
+      totalPrice: 800,
+      state: StateEnum.Paid,
+      orderDetails: [lowerSubtotalDetail],
+    });
+
+    const updatedOrder = await ordersService.updateOrder(
+      'order-id',
+      { products: [{ productId: 'product-id', cuantity: 1 }] },
+      adminUser,
+    );
+
+    expect(updatedOrder.totalPrice).toBe(800);
+    expect(updatedOrder.state).toBe(StateEnum.Paid);
+    expect(updatedOrder.remainingBalance).toBe(0);
+  });
+
+  it('rejects product update when deposit exceeds new total', async () => {
+    const lowerSubtotalDetail = { ...mockOrderDetail, subTotal: 5000 };
+    orderDetailsService.create.mockResolvedValue(lowerSubtotalDetail);
+    orderRepository.findOne.mockResolvedValue({
+      ...mockOrder,
+      depositAmount: 8000,
+      totalPrice: 10000,
+      state: StateEnum.PartialPayment,
+    });
+
+    await expect(
+      ordersService.updateOrder(
+        'order-id',
+        { products: [{ productId: 'product-id', cuantity: 1 }] },
+        adminUser,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('records order_edited when client fields change', async () => {
+    orderRepository.findOne.mockResolvedValue({ ...mockOrder });
+    configureReloadedOrder({ nameClient: 'Nuevo Cliente' });
+
+    const updatedOrder = await ordersService.updateOrder(
+      'order-id',
+      { nameClient: 'Nuevo Cliente' },
+      adminUser,
+    );
+
+    expect(updatedOrder.nameClient).toBe('Nuevo Cliente');
+    expect(transactionTimelineRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: OrderTimelineEventType.OrderEdited,
+      }),
+    );
+  });
+
+  it('returns early without timeline events when payload has no changes', async () => {
+    orderRepository.findOne.mockResolvedValue({ ...mockOrder, depositAmount: 0 });
+    transactionTimelineRepository.save.mockClear();
+
+    const updatedOrder = await ordersService.updateOrder(
+      'order-id',
+      { depositAmount: 0 },
+      adminUser,
+    );
+
+    expect(updatedOrder.depositAmount).toBe(0);
+    expect(transactionTimelineRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('cancels in-process order', async () => {
+    orderRepository.findOne.mockResolvedValue({
+      ...mockOrder,
+      state: StateEnum.PartialPayment,
+      depositAmount: 500,
+    });
+
+    const cancelledOrder = await ordersService.updateOrder(
+      'order-id',
+      { state: StateEnum.Cancelled, cancelReason: 'Cliente desistió' },
+      adminUser,
+    );
+
+    expect(cancelledOrder.state).toBe(StateEnum.Cancelled);
+    expect(transactionTimelineRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: OrderTimelineEventType.OrderCancelled,
+      }),
+    );
+  });
+
+  it('rejects cancelling a paid order', async () => {
+    orderRepository.findOne.mockResolvedValue({
+      ...mockOrder,
+      state: StateEnum.Paid,
+      depositAmount: 1500,
+    });
+
+    await expect(
+      ordersService.updateOrder(
+        'order-id',
+        { state: StateEnum.Cancelled },
+        adminUser,
+      ),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('rejects cancel and deposit update in the same request', async () => {
+    orderRepository.findOne.mockResolvedValue({ ...mockOrder });
+
+    await expect(
+      ordersService.updateOrder(
+        'order-id',
+        { state: StateEnum.Cancelled, depositAmount: 100 },
+        adminUser,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('serializes deposit defaults on create', async () => {
+    const createdOrder = await ordersService.create(createOrderDto);
+
+    expect(createdOrder.depositAmount).toBe(0);
+    expect(createdOrder.remainingBalance).toBe(1500);
+  });
+
+  it('derives payment state from depositAmount and records payment_updated', async () => {
+    orderRepository.findOne.mockResolvedValue({ ...mockOrder, depositAmount: 0 });
+
+    const updatedOrder = await ordersService.updateOrder(
+      'order-id',
+      { depositAmount: 750 },
+      adminUser,
+    );
+
+    expect(updatedOrder.state).toBe(StateEnum.PartialPayment);
+    expect(updatedOrder.remainingBalance).toBe(750);
+    expect(updatedOrder.depositAmount).toBe(750);
     expect(dataSource.transaction).toHaveBeenCalled();
+  });
+
+  it('rejects manual payment state changes', async () => {
+    orderRepository.findOne.mockResolvedValue({ ...mockOrder });
+
+    await expect(
+      ordersService.updateOrder(
+        'order-id',
+        { state: StateEnum.Paid as StateEnum.Cancelled },
+        adminUser,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('allows admin notes on cancelled orders', async () => {
+    orderRepository.findOne.mockResolvedValue({
+      ...mockOrder,
+      state: StateEnum.Cancelled,
+    });
+
+    const result = await ordersService.addAdminNote(
+      'order-id',
+      'Seguimiento post-cancelación',
+      adminUser,
+    );
+
+    expect(result.note.text).toBe('Seguimiento post-cancelación');
+  });
+
+  it('hides cancelled orders from public findOneById', async () => {
+    orderRepository.findOne.mockResolvedValue({
+      ...mockOrder,
+      state: StateEnum.Cancelled,
+    });
+
+    await expect(ordersService.findOneById('order-id')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('blocks edits on cancelled orders', async () => {
+    orderRepository.findOne.mockResolvedValue({
+      ...mockOrder,
+      state: StateEnum.Cancelled,
+    });
+
+    await expect(
+      ordersService.updateOrder(
+        'order-id',
+        { depositAmount: 100 },
+        adminUser,
+      ),
+    ).rejects.toThrow(ConflictException);
   });
 
   it('returns admin order detail with timeline and notes', async () => {
@@ -329,6 +609,8 @@ describe('OrdersService', () => {
     expect(result.notes).toHaveLength(1);
     expect(result.timeline[0].type).toBe(OrderTimelineEventType.Created);
     expect(result.notes[0].text).toBe('Nota de prueba');
+    expect(result.remainingBalance).toBe(1500);
+    expect(result.depositAmount).toBe(0);
   });
 
   it('appends admin note and records admin_note_added timeline event', async () => {

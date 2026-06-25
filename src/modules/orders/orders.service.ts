@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   Logger,
@@ -15,8 +16,9 @@ import { envs } from 'src/config/envs';
 import { EMAIL_SENDER } from '../email/email-sender.token';
 import { EmailSender } from '../email/email-sender.interface';
 import { Orderdetail } from '../orderdetails/entities/orderdetail.entity';
+import { CreateOrderdetailDto } from '../orderdetails/dto/create-orderdetail.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
-import { UpdateOrderPartialDto } from './dto/update-order-partial.dto';
+import { UpdateOrderAdminDto } from './dto/update-order-admin.dto';
 import { OrderTimelineEvent } from './entities/order-timeline-event.entity';
 import { OrderAdminNote } from './entities/order-admin-note.entity';
 import { OrderTimelineEventType } from './enums/order-timeline-event-type.enum';
@@ -26,6 +28,15 @@ import {
   SerializedAdminNote,
   SerializedTimelineEvent,
 } from './interfaces/order-admin-responses.interface';
+import { StateEnum } from 'src/enums/states.enum';
+import {
+  computeRemainingBalance,
+  derivePaymentState,
+} from './helpers/derive-payment-state.helper';
+import {
+  OrderWithRemainingBalance,
+  serializeOrderWithBalance,
+} from './helpers/serialize-order-response.helper';
 
 interface BuildOrderConfirmationHtmlInput {
   nameClient: string;
@@ -48,8 +59,35 @@ export interface OrderListMeta {
 }
 
 export interface PaginatedOrdersResponse {
-  data: Order[];
+  data: OrderWithRemainingBalance[];
   meta: OrderListMeta;
+}
+
+interface LoadOrderOptions {
+  allowCancelled: boolean;
+}
+
+interface OrderFieldSnapshot {
+  nameClient: string;
+  personalizationName: string;
+  email: string;
+  numCel: string;
+  num2Cel?: string;
+  theme: string;
+  address: string;
+  endOrder: string;
+  transactionType: Order['transactionType'];
+  depositAmount: number;
+  totalPrice: number;
+}
+
+interface UpdateOrderMutationResult {
+  paymentChanged: boolean;
+  orderEdited: boolean;
+  deliveryOnlyChanged: boolean;
+  productsChanged: boolean;
+  previousDeposit: number;
+  previousSnapshot: OrderFieldSnapshot;
 }
 
 interface RecordTimelineEventInput {
@@ -110,6 +148,7 @@ export class OrdersService {
             address,
             email,
             totalPrice: 0,
+            depositAmount: 0,
           });
 
           const savedOrder = await orderRepository.save(orderSchema);
@@ -172,7 +211,7 @@ export class OrdersService {
         );
       });
 
-    return order;
+    return serializeOrderWithBalance(order);
   }
 
   private buildOrderConfirmationHtml(
@@ -316,6 +355,10 @@ export class OrdersService {
 
     if (state) {
       queryBuilder.andWhere('order.state = :state', { state });
+    } else {
+      queryBuilder.andWhere('order.state != :cancelledState', {
+        cancelledState: StateEnum.Cancelled,
+      });
     }
 
     if (transactionType) {
@@ -349,11 +392,11 @@ export class OrdersService {
       .skip(skip)
       .take(limit);
 
-    const [data, total] = await queryBuilder.getManyAndCount();
+    const [orders, total] = await queryBuilder.getManyAndCount();
     const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
 
     return {
-      data,
+      data: orders.map((orderItem) => serializeOrderWithBalance(orderItem)),
       meta: {
         total,
         page,
@@ -363,19 +406,36 @@ export class OrdersService {
     };
   }
 
-  async findOneById(id: string) {
+  private async loadOrderById(
+    orderId: string,
+    loadOrderOptions: LoadOrderOptions,
+  ): Promise<Order> {
     const order = await this.orderRepository.findOne({
-      where: { id },
+      where: { id: orderId },
       relations: { orderDetails: { product: true } },
     });
+
     if (!order) {
       throw new NotFoundException('No hay orden con esa id');
     }
+
+    if (
+      !loadOrderOptions.allowCancelled &&
+      order.state === StateEnum.Cancelled
+    ) {
+      throw new NotFoundException('No hay orden con esa id');
+    }
+
     return order;
   }
 
+  async findOneById(orderId: string): Promise<OrderWithRemainingBalance> {
+    const order = await this.loadOrderById(orderId, { allowCancelled: false });
+    return serializeOrderWithBalance(order);
+  }
+
   async findAdminById(orderId: string) {
-    const order = await this.findOneById(orderId);
+    const order = await this.loadOrderById(orderId, { allowCancelled: true });
 
     const timelineEvents = await this.timelineEventRepository.find({
       where: { order: { id: orderId } },
@@ -390,86 +450,433 @@ export class OrdersService {
     });
 
     return {
-      ...order,
+      ...serializeOrderWithBalance(order),
       timeline: timelineEvents.map((event) => this.mapTimelineEvent(event)),
       notes: adminNotes.map((note) => this.mapAdminNote(note)),
     };
   }
 
-  async updatePartial(
+  async updateOrder(
     orderId: string,
-    updateOrderPartialDto: UpdateOrderPartialDto,
+    updateOrderAdminDto: UpdateOrderAdminDto,
     adminUser: AuthenticatedAdminUser,
-  ) {
-    const order = await this.findOneById(orderId);
-    const previousState = order.state;
-    const previousTransactionType = order.transactionType;
-    const previousAddress = order.address;
+  ): Promise<OrderWithRemainingBalance> {
+    const order = await this.loadOrderById(orderId, { allowCancelled: true });
 
-    const stateWillChange =
-      updateOrderPartialDto.state !== undefined &&
-      updateOrderPartialDto.state !== order.state;
-    const transactionTypeWillChange =
-      updateOrderPartialDto.transactionType !== undefined &&
-      updateOrderPartialDto.transactionType !== order.transactionType;
-    const addressWillChange =
-      updateOrderPartialDto.address !== undefined &&
-      updateOrderPartialDto.address !== order.address;
+    const isCancelRequest = updateOrderAdminDto.state === StateEnum.Cancelled;
 
-    if (!stateWillChange && !transactionTypeWillChange && !addressWillChange) {
+    if (
+      updateOrderAdminDto.state !== undefined &&
+      updateOrderAdminDto.state !== StateEnum.Cancelled
+    ) {
+      throw new BadRequestException(
+        'state solo admite cancelled; el estado de pago se deriva de depositAmount',
+      );
+    }
+
+    if (isCancelRequest && updateOrderAdminDto.depositAmount !== undefined) {
+      throw new BadRequestException(
+        'No se puede cancelar y actualizar la seña en la misma solicitud',
+      );
+    }
+
+    if (isCancelRequest) {
+      const cancelledOrder = await this.handleCancelOrder(
+        order,
+        updateOrderAdminDto.cancelReason,
+        adminUser,
+      );
+      return serializeOrderWithBalance(cancelledOrder);
+    }
+
+    if (order.state === StateEnum.Cancelled) {
+      throw new ConflictException('El pedido cancelado no puede editarse');
+    }
+
+    return this.dataSource.transaction(async (transactionManager) => {
+      const mutationResult = await this.applyOrderUpdates(
+        order,
+        updateOrderAdminDto,
+        transactionManager,
+      );
+
+      if (
+        !mutationResult.paymentChanged &&
+        !mutationResult.orderEdited &&
+        !mutationResult.deliveryOnlyChanged
+      ) {
+        return serializeOrderWithBalance(order);
+      }
+
+      this.validateDepositAgainstTotal(order.depositAmount ?? 0, order.totalPrice);
+      this.applyDerivedPaymentState(order);
+
+      const orderRepository = transactionManager.getRepository(Order);
+      const savedOrder = await orderRepository.save(order);
+
+      await this.recordUpdateSideEffects(
+        savedOrder,
+        adminUser,
+        mutationResult,
+        transactionManager,
+      );
+
+      const reloadedOrder = await orderRepository.findOne({
+        where: { id: savedOrder.id },
+        relations: { orderDetails: { product: true } },
+      });
+
+      return serializeOrderWithBalance(reloadedOrder ?? savedOrder);
+    });
+  }
+
+  private async handleCancelOrder(
+    order: Order,
+    cancelReason: string | undefined,
+    adminUser: AuthenticatedAdminUser,
+  ): Promise<Order> {
+    if (order.state === StateEnum.Cancelled) {
       return order;
     }
 
-    if (stateWillChange) {
-      order.state = updateOrderPartialDto.state!;
+    if (order.state === StateEnum.Paid) {
+      throw new ConflictException('No se puede cancelar un pedido pagado');
     }
 
-    if (transactionTypeWillChange) {
-      order.transactionType = updateOrderPartialDto.transactionType!;
-    }
-
-    if (addressWillChange) {
-      order.address = updateOrderPartialDto.address!;
-    }
+    const previousState = order.state;
+    order.state = StateEnum.Cancelled;
 
     return this.dataSource.transaction(async (transactionManager) => {
       const orderRepository = transactionManager.getRepository(Order);
       const savedOrder = await orderRepository.save(order);
 
-      if (stateWillChange) {
-        await this.recordTimelineEvent({
-          order: savedOrder,
-          type: OrderTimelineEventType.StateChanged,
-          payload: {
-            from: previousState,
-            to: updateOrderPartialDto.state,
-          },
-          createdByUserId: adminUser.id,
-          transactionManager,
-        });
-      }
+      await this.recordTimelineEvent({
+        order: savedOrder,
+        type: OrderTimelineEventType.OrderCancelled,
+        payload: {
+          previousState,
+          ...(cancelReason?.trim() && { reason: cancelReason.trim() }),
+        },
+        createdByUserId: adminUser.id,
+        transactionManager,
+      });
 
-      if (transactionTypeWillChange || addressWillChange) {
-        await this.recordTimelineEvent({
-          order: savedOrder,
-          type: OrderTimelineEventType.TransactionChanged,
-          payload: {
-            ...(transactionTypeWillChange && {
-              fromTransactionType: previousTransactionType,
-              toTransactionType: updateOrderPartialDto.transactionType,
-            }),
-            ...(addressWillChange && {
-              fromAddress: previousAddress,
-              toAddress: updateOrderPartialDto.address,
-            }),
-          },
-          createdByUserId: adminUser.id,
-          transactionManager,
-        });
-      }
+      const noteText = cancelReason?.trim()
+        ? `Pedido cancelado. Motivo: ${cancelReason.trim()}`
+        : 'Pedido cancelado.';
+
+      await this.createSystemAdminNote(
+        savedOrder,
+        noteText,
+        adminUser,
+        transactionManager,
+      );
 
       return savedOrder;
     });
+  }
+
+  private async applyOrderUpdates(
+    order: Order,
+    updateOrderAdminDto: UpdateOrderAdminDto,
+    transactionManager: EntityManager,
+  ): Promise<UpdateOrderMutationResult> {
+    const previousSnapshot = this.snapshotOrderFields(order);
+    const previousDeposit = order.depositAmount ?? 0;
+    let productsChanged = false;
+
+    if (updateOrderAdminDto.products !== undefined) {
+      const replaceResult = await this.replaceOrderDetails(
+        order,
+        updateOrderAdminDto.products,
+        transactionManager,
+      );
+      order.orderDetails = replaceResult.orderDetails;
+      order.totalPrice = replaceResult.totalPrice;
+      productsChanged = true;
+    }
+
+    if (updateOrderAdminDto.depositAmount !== undefined) {
+      order.depositAmount = updateOrderAdminDto.depositAmount;
+    }
+
+    if (updateOrderAdminDto.nameClient !== undefined) {
+      order.nameClient = updateOrderAdminDto.nameClient;
+    }
+    if (updateOrderAdminDto.personalizationName !== undefined) {
+      order.personalizationName = updateOrderAdminDto.personalizationName;
+    }
+    if (updateOrderAdminDto.email !== undefined) {
+      order.email = updateOrderAdminDto.email;
+    }
+    if (updateOrderAdminDto.numCel !== undefined) {
+      order.numCel = updateOrderAdminDto.numCel;
+    }
+    if (updateOrderAdminDto.num2Cel !== undefined) {
+      order.num2Cel = updateOrderAdminDto.num2Cel;
+    }
+    if (updateOrderAdminDto.theme !== undefined) {
+      order.theme = updateOrderAdminDto.theme;
+    }
+    if (updateOrderAdminDto.address !== undefined) {
+      order.address = updateOrderAdminDto.address;
+    }
+    if (updateOrderAdminDto.endOrder !== undefined) {
+      order.endOrder = updateOrderAdminDto.endOrder;
+    }
+    if (updateOrderAdminDto.transactionType !== undefined) {
+      order.transactionType = updateOrderAdminDto.transactionType;
+    }
+
+    const paymentChanged =
+      updateOrderAdminDto.depositAmount !== undefined &&
+      updateOrderAdminDto.depositAmount !== previousDeposit;
+
+    const deliveryChanged =
+      (updateOrderAdminDto.transactionType !== undefined &&
+        updateOrderAdminDto.transactionType !==
+          previousSnapshot.transactionType) ||
+      (updateOrderAdminDto.address !== undefined &&
+        updateOrderAdminDto.address !== previousSnapshot.address);
+
+    const nonDeliveryFieldChanged =
+      (updateOrderAdminDto.nameClient !== undefined &&
+        updateOrderAdminDto.nameClient !== previousSnapshot.nameClient) ||
+      (updateOrderAdminDto.personalizationName !== undefined &&
+        updateOrderAdminDto.personalizationName !==
+          previousSnapshot.personalizationName) ||
+      (updateOrderAdminDto.email !== undefined &&
+        updateOrderAdminDto.email !== previousSnapshot.email) ||
+      (updateOrderAdminDto.numCel !== undefined &&
+        updateOrderAdminDto.numCel !== previousSnapshot.numCel) ||
+      (updateOrderAdminDto.num2Cel !== undefined &&
+        updateOrderAdminDto.num2Cel !== previousSnapshot.num2Cel) ||
+      (updateOrderAdminDto.theme !== undefined &&
+        updateOrderAdminDto.theme !== previousSnapshot.theme) ||
+      (updateOrderAdminDto.endOrder !== undefined &&
+        updateOrderAdminDto.endOrder !== previousSnapshot.endOrder);
+
+    const orderEdited = productsChanged || nonDeliveryFieldChanged || deliveryChanged;
+    const deliveryOnlyChanged =
+      deliveryChanged && !productsChanged && !nonDeliveryFieldChanged && !paymentChanged;
+
+    return {
+      paymentChanged,
+      orderEdited: orderEdited && !deliveryOnlyChanged,
+      deliveryOnlyChanged,
+      productsChanged,
+      previousDeposit,
+      previousSnapshot,
+    };
+  }
+
+  private async replaceOrderDetails(
+    order: Order,
+    products: CreateOrderdetailDto[],
+    transactionManager: EntityManager,
+  ): Promise<{ orderDetails: Orderdetail[]; totalPrice: number }> {
+    const orderDetailRepository = transactionManager.getRepository(Orderdetail);
+    await orderDetailRepository.delete({ order: { id: order.id } });
+
+    const orderDetailsList = await Promise.all(
+      products.map(async (productItem) =>
+        this.orderDetailsService.create(
+          productItem,
+          order,
+          transactionManager,
+        ),
+      ),
+    );
+
+    let orderTotal = 0;
+    for (const orderDetail of orderDetailsList) {
+      orderTotal += orderDetail.subTotal;
+    }
+
+    return { orderDetails: orderDetailsList, totalPrice: orderTotal };
+  }
+
+  private validateDepositAgainstTotal(
+    depositAmount: number,
+    totalPrice: number,
+  ): void {
+    if (depositAmount < 0 || depositAmount > totalPrice) {
+      throw new BadRequestException(
+        'depositAmount debe estar entre 0 y el total del pedido',
+      );
+    }
+  }
+
+  private applyDerivedPaymentState(order: Order): void {
+    if (order.state === StateEnum.Cancelled) {
+      return;
+    }
+
+    order.state = derivePaymentState(
+      order.depositAmount ?? 0,
+      order.totalPrice,
+    );
+  }
+
+  private snapshotOrderFields(order: Order): OrderFieldSnapshot {
+    return {
+      nameClient: order.nameClient,
+      personalizationName: order.personalizationName,
+      email: order.email,
+      numCel: order.numCel,
+      num2Cel: order.num2Cel,
+      theme: order.theme,
+      address: order.address,
+      endOrder: order.endOrder,
+      transactionType: order.transactionType,
+      depositAmount: order.depositAmount ?? 0,
+      totalPrice: order.totalPrice,
+    };
+  }
+
+  private async recordUpdateSideEffects(
+    order: Order,
+    adminUser: AuthenticatedAdminUser,
+    mutationResult: UpdateOrderMutationResult,
+    transactionManager: EntityManager,
+  ): Promise<void> {
+    const noteLines: string[] = [];
+
+    if (mutationResult.paymentChanged) {
+      const remainingBalance = computeRemainingBalance(
+        order.totalPrice,
+        order.depositAmount ?? 0,
+      );
+
+      await this.recordTimelineEvent({
+        order,
+        type: OrderTimelineEventType.PaymentUpdated,
+        payload: {
+          fromDeposit: mutationResult.previousDeposit,
+          toDeposit: order.depositAmount ?? 0,
+          totalPrice: order.totalPrice,
+          remainingBalance,
+        },
+        createdByUserId: adminUser.id,
+        transactionManager,
+      });
+
+      noteLines.push(
+        `seña $${mutationResult.previousDeposit} → $${order.depositAmount ?? 0}`,
+      );
+    }
+
+    if (mutationResult.deliveryOnlyChanged) {
+      // transaction_changed solo cuando cambian datos de entrega sin otras ediciones (C3).
+      const previousSnapshot = mutationResult.previousSnapshot;
+
+      await this.recordTimelineEvent({
+        order,
+        type: OrderTimelineEventType.TransactionChanged,
+        payload: {
+          ...(previousSnapshot.transactionType !== order.transactionType && {
+            fromTransactionType: previousSnapshot.transactionType,
+            toTransactionType: order.transactionType,
+          }),
+          ...(previousSnapshot.address !== order.address && {
+            fromAddress: previousSnapshot.address,
+            toAddress: order.address,
+          }),
+        },
+        createdByUserId: adminUser.id,
+        transactionManager,
+      });
+
+      noteLines.push('datos de entrega actualizados');
+    }
+
+    if (mutationResult.orderEdited) {
+      const changes = this.buildOrderChanges(
+        mutationResult.previousSnapshot,
+        order,
+      );
+
+      await this.recordTimelineEvent({
+        order,
+        type: OrderTimelineEventType.OrderEdited,
+        payload: {
+          fields: Object.keys(changes),
+          changes,
+          productsChanged: mutationResult.productsChanged,
+        },
+        createdByUserId: adminUser.id,
+        transactionManager,
+      });
+
+      if (mutationResult.productsChanged) {
+        noteLines.push(
+          `productos actualizados (${order.orderDetails?.length ?? 0} ítems)`,
+        );
+      }
+
+      const editedFieldLabels = Object.keys(changes).filter(
+        (fieldName) => fieldName !== 'totalPrice' && fieldName !== 'depositAmount',
+      );
+      if (editedFieldLabels.length > 0) {
+        noteLines.push(`campos: ${editedFieldLabels.join(', ')}`);
+      }
+    }
+
+    if (noteLines.length > 0) {
+      await this.createSystemAdminNote(
+        order,
+        `Pedido modificado: ${noteLines.join('; ')}.`,
+        adminUser,
+        transactionManager,
+      );
+    }
+  }
+
+  private buildOrderChanges(
+    previousSnapshot: OrderFieldSnapshot,
+    order: Order,
+  ): Record<string, { from: unknown; to: unknown }> {
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    const trackedFields: Array<keyof OrderFieldSnapshot> = [
+      'nameClient',
+      'personalizationName',
+      'email',
+      'numCel',
+      'num2Cel',
+      'theme',
+      'address',
+      'endOrder',
+      'transactionType',
+      'totalPrice',
+    ];
+
+    for (const fieldName of trackedFields) {
+      const previousValue = previousSnapshot[fieldName];
+      const nextValue = order[fieldName as keyof Order];
+      if (previousValue !== nextValue) {
+        changes[fieldName] = { from: previousValue, to: nextValue };
+      }
+    }
+
+    return changes;
+  }
+
+  private async createSystemAdminNote(
+    order: Order,
+    noteText: string,
+    adminUser: AuthenticatedAdminUser,
+    transactionManager: EntityManager,
+  ): Promise<void> {
+    const adminNoteRepository =
+      transactionManager.getRepository(OrderAdminNote);
+
+    const adminNote = adminNoteRepository.create({
+      order,
+      text: noteText,
+      createdByUser: { id: adminUser.id } as User,
+    });
+
+    await adminNoteRepository.save(adminNote);
   }
 
   async addAdminNote(
@@ -477,7 +884,7 @@ export class OrdersService {
     noteText: string,
     adminUser: AuthenticatedAdminUser,
   ): Promise<{ note: SerializedAdminNote }> {
-    const order = await this.findOneById(orderId);
+    const order = await this.loadOrderById(orderId, { allowCancelled: true });
 
     return this.dataSource.transaction(async (transactionManager) => {
       const adminNoteRepository =
