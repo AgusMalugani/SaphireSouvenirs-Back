@@ -8,6 +8,7 @@ const envsSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'production']).default('development'),
     DB_SYNCHRONIZE: optionalEnvBooleanSchema,
+    DB_DROP_SCHEMA: optionalEnvBooleanSchema,
     SEED_ON_STARTUP: optionalEnvBooleanSchema,
     PORT: z.coerce.number().default(3000),
     DATABASE_URL: z.string().min(1),
@@ -28,14 +29,25 @@ const envsSchema = z
       rawEnvs.DB_SYNCHRONIZE === undefined
         ? dbSynchronizeDefault
         : rawEnvs.DB_SYNCHRONIZE === 'true';
+    const dbDropSchema =
+      rawEnvs.DB_DROP_SCHEMA === undefined
+        ? false
+        : rawEnvs.DB_DROP_SCHEMA === 'true';
     const seedOnStartup =
       rawEnvs.SEED_ON_STARTUP === undefined
         ? false
         : rawEnvs.SEED_ON_STARTUP === 'true';
 
+    if (dbDropSchema) {
+      console.warn(
+        '\n⚠️  DB_DROP_SCHEMA=true: TypeORM borrará todas las tablas al arrancar. Desactivá la variable después del reinicio.\n',
+      );
+    }
+
     return {
       ...rawEnvs,
       DB_SYNCHRONIZE: dbSynchronize,
+      DB_DROP_SCHEMA: dbDropSchema,
       SEED_ON_STARTUP: seedOnStartup,
     };
   });
@@ -57,5 +69,6 @@ export const envs = parsedEnvs.data;
 export const effectiveRuntimeConfig = resolveRuntimeConfig({
   nodeEnvironment: envs.NODE_ENV,
   dbSynchronize: envs.DB_SYNCHRONIZE,
+  dbDropSchema: envs.DB_DROP_SCHEMA,
   seedOnStartup: envs.SEED_ON_STARTUP,
 });

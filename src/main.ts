@@ -17,6 +17,12 @@ async function bootstrap() {
     );
   }
 
+  if (effectiveRuntimeConfig.dropSchema) {
+    bootstrapLogger.warn(
+      'DB_DROP_SCHEMA=true activo: el esquema fue recreado en este arranque. Volvé a false en el entorno.',
+    );
+  }
+
   if (effectiveRuntimeConfig.seedOnStartup) {
     const categories = app.get(CategoriesSeed);
     await categories.seed();

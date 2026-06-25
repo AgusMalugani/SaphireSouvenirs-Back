@@ -1,20 +1,33 @@
 import { resolveRuntimeConfig } from './resolveRuntimeConfig';
 
 describe('resolveRuntimeConfig', () => {
-  it('keeps dropSchema false in development', () => {
+  it('keeps dropSchema false by default in development', () => {
     const effectiveConfig = resolveRuntimeConfig({
       nodeEnvironment: 'development',
       dbSynchronize: true,
+      dbDropSchema: false,
       seedOnStartup: false,
     });
 
     expect(effectiveConfig.dropSchema).toBe(false);
   });
 
+  it('enables dropSchema in development when flag is true', () => {
+    const effectiveConfig = resolveRuntimeConfig({
+      nodeEnvironment: 'development',
+      dbSynchronize: true,
+      dbDropSchema: true,
+      seedOnStartup: false,
+    });
+
+    expect(effectiveConfig.dropSchema).toBe(true);
+  });
+
   it('uses dbSynchronize flag in development when true', () => {
     const effectiveConfig = resolveRuntimeConfig({
       nodeEnvironment: 'development',
       dbSynchronize: true,
+      dbDropSchema: false,
       seedOnStartup: false,
     });
 
@@ -25,6 +38,7 @@ describe('resolveRuntimeConfig', () => {
     const effectiveConfig = resolveRuntimeConfig({
       nodeEnvironment: 'development',
       dbSynchronize: false,
+      dbDropSchema: false,
       seedOnStartup: false,
     });
 
@@ -35,6 +49,7 @@ describe('resolveRuntimeConfig', () => {
     const effectiveConfig = resolveRuntimeConfig({
       nodeEnvironment: 'development',
       dbSynchronize: true,
+      dbDropSchema: false,
       seedOnStartup: true,
     });
 
@@ -45,6 +60,7 @@ describe('resolveRuntimeConfig', () => {
     const effectiveConfig = resolveRuntimeConfig({
       nodeEnvironment: 'production',
       dbSynchronize: true,
+      dbDropSchema: false,
       seedOnStartup: false,
     });
 
@@ -52,25 +68,40 @@ describe('resolveRuntimeConfig', () => {
     expect(effectiveConfig.dropSchema).toBe(false);
   });
 
+  it('allows dropSchema in production when explicitly enabled', () => {
+    const effectiveConfig = resolveRuntimeConfig({
+      nodeEnvironment: 'production',
+      dbSynchronize: false,
+      dbDropSchema: true,
+      seedOnStartup: false,
+    });
+
+    expect(effectiveConfig.dropSchema).toBe(true);
+    expect(effectiveConfig.synchronize).toBe(false);
+    expect(effectiveConfig.seedOnStartup).toBe(false);
+  });
+
   it('forces seed off in production even when raw flag is true', () => {
     const effectiveConfig = resolveRuntimeConfig({
       nodeEnvironment: 'production',
       dbSynchronize: false,
+      dbDropSchema: false,
       seedOnStartup: true,
     });
 
     expect(effectiveConfig.seedOnStartup).toBe(false);
   });
 
-  it('forces both sync and seed off in production with all flags true', () => {
+  it('forces sync and seed off in production with all flags true', () => {
     const effectiveConfig = resolveRuntimeConfig({
       nodeEnvironment: 'production',
       dbSynchronize: true,
+      dbDropSchema: true,
       seedOnStartup: true,
     });
 
     expect(effectiveConfig).toEqual({
-      dropSchema: false,
+      dropSchema: true,
       synchronize: false,
       seedOnStartup: false,
     });
